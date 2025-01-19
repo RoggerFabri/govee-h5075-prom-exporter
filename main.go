@@ -42,7 +42,7 @@ var (
 	)
 )
 
-// Track the last update time for each location
+// Track the last update time for each file
 var lastUpdateTime = make(map[string]time.Time)
 var mutex = &sync.Mutex{} // Protect access to the lastUpdateTime map
 
@@ -63,85 +63,97 @@ func parseLogsAndUpdateMetrics(logDir string) {
 		return
 	}
 
-	// Keep track of locations updated in this cycle
-	updatedLocations := make(map[string]bool)
-
 	for _, file := range files {
 		location := strings.TrimSuffix(filepath.Base(file), ".log")
 
-		// Open the log file
-		f, err := os.Open(file)
+		// Get file info to check modification time
+		fileInfo, err := os.Stat(file)
 		if err != nil {
-			log.Printf("Error opening file %s: %v", file, err)
+			log.Printf("Error getting file info for %s: %v", file, err)
 			continue
 		}
-		defer f.Close()
 
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Text()
-			parts := strings.Split(line, ",")
-			if len(parts) < 5 {
-				log.Printf("Skipping invalid line in %s: %s", file, line)
-				continue
-			}
+		// Check last modification time
+		modTime := fileInfo.ModTime()
 
-			// Parse temperature, humidity, and battery
-			temp, err := strconv.ParseFloat(parts[2], 64)
-			if err != nil {
-				log.Printf("Error parsing temperature in %s: %s", file, err)
-				continue
-			}
+		// Update last modification time
+		mutex.Lock()
+		lastUpdateTime[location] = modTime
+		mutex.Unlock()
 
-			humidity, err := strconv.ParseFloat(parts[3], 64)
-			if err != nil {
-				log.Printf("Error parsing humidity in %s: %s", file, err)
-				continue
-			}
-
-			battery, err := strconv.ParseFloat(parts[4], 64)
-			if err != nil {
-				log.Printf("Error parsing battery in %s: %s", file, err)
-				continue
-			}
-
-			// Update Prometheus metrics
-			temperatureGauge.WithLabelValues(location).Set(temp)
-			humidityGauge.WithLabelValues(location).Set(humidity)
-			batteryGauge.WithLabelValues(location).Set(battery)
-
-			// Mark location as updated
-			updatedLocations[location] = true
-
-			// Update the last update time
-			mutex.Lock()
-			lastUpdateTime[location] = time.Now()
-			mutex.Unlock()
-		}
-
-		if err := scanner.Err(); err != nil {
-			log.Printf("Error reading file %s: %v", file, err)
-		}
+		// Parse the file's contents to update metrics
+		parseFileAndUpdateMetrics(file, location)
 	}
 
 	// Check for stale metrics
-	checkForStaleMetrics(updatedLocations)
+	checkForStaleMetrics()
 }
 
-func checkForStaleMetrics(updatedLocations map[string]bool) {
+func parseFileAndUpdateMetrics(file, location string) {
+	// Open the log file
+	f, err := os.Open(file)
+	if err != nil {
+		log.Printf("Error opening file %s: %v", file, err)
+		return
+	}
+	defer f.Close()
+
+	// Read the file's contents
+	scanner := bufio.NewScanner(f)
+	var lastLine string
+	for scanner.Scan() {
+		lastLine = scanner.Text() // Keep only the last line
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Error reading file %s: %v", file, err)
+		return
+	}
+
+	// Parse the last line
+	parts := strings.Split(lastLine, ",")
+	if len(parts) < 5 {
+		log.Printf("Invalid line format in %s: %s", file, lastLine)
+		return
+	}
+
+	// Extract and parse temperature, humidity, and battery
+	temp, err := strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		log.Printf("Error parsing temperature in %s: %s", file, err)
+		return
+	}
+
+	humidity, err := strconv.ParseFloat(parts[3], 64)
+	if err != nil {
+		log.Printf("Error parsing humidity in %s: %s", file, err)
+		return
+	}
+
+	battery, err := strconv.ParseFloat(parts[4], 64)
+	if err != nil {
+		log.Printf("Error parsing battery in %s: %s", file, err)
+		return
+	}
+
+	// Update Prometheus metrics
+	temperatureGauge.WithLabelValues(location).Set(temp)
+	humidityGauge.WithLabelValues(location).Set(humidity)
+	batteryGauge.WithLabelValues(location).Set(battery)
+}
+
+func checkForStaleMetrics() {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	now := time.Now()
-	for location, lastUpdate := range lastUpdateTime {
-		if now.Sub(lastUpdate) > staleThreshold {
-			// Mark metrics as stale if they are not updated in this cycle
-			if !updatedLocations[location] {
-				temperatureGauge.DeleteLabelValues(location)
-				humidityGauge.DeleteLabelValues(location)
-				batteryGauge.DeleteLabelValues(location)
-				log.Printf("Metrics for %s have been reset due to inactivity", location)
-			}
+	for location, modTime := range lastUpdateTime {
+		// Reset metrics if the file has not been modified within the threshold
+		if now.Sub(modTime) > staleThreshold {
+			temperatureGauge.DeleteLabelValues(location)
+			humidityGauge.DeleteLabelValues(location)
+			batteryGauge.DeleteLabelValues(location)
+			log.Printf("Metrics for %s have been reset due to inactivity (last modified at %s)", location, modTime)
 		}
 	}
 }
@@ -152,7 +164,7 @@ func main() {
 	// Get the refresh interval from the environment variable
 	refreshIntervalStr := os.Getenv("REFRESH_INTERVAL")
 	if refreshIntervalStr == "" {
-		refreshIntervalStr = "30" // Default to 30 seconds
+		refreshIntervalStr = "5" // Default to 30 seconds
 	}
 
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
@@ -163,7 +175,7 @@ func main() {
 	// Get the stale threshold from the environment variable
 	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
 	if staleThresholdStr == "" {
-		staleThresholdStr = "300" // Default to 300 seconds (5 minutes)
+		staleThresholdStr = "10" // Default to 300 seconds (5 minutes)
 	}
 
 	staleThresholdSeconds, err := strconv.Atoi(staleThresholdStr)
@@ -185,7 +197,7 @@ func main() {
 	}()
 
 	// Start the HTTP server
-	addr := ":8080"
+	addr := ":7777"
 	fmt.Printf("Starting metrics server at %s with refresh interval %d seconds and stale threshold %d seconds\n", addr, refreshInterval, staleThresholdSeconds)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %v", err)
