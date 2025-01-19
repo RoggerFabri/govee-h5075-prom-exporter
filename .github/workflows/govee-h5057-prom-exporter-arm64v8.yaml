@@ -25,7 +25,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          context: "${{ github.server_url }}/${{ github.repository }}.git#${{ github.ref }}:govee-h5057-prom-exporter"
+          context: "${{ github.server_url }}/${{ github.repository }}.git#${{ github.ref }}"
           tags: |
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5057-prom-exporter:arm64v8-latest
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5057-prom-exporter:arm64v8-${{github.run_number}}
