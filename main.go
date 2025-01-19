@@ -112,7 +112,7 @@ func parseFileAndUpdateMetrics(file, location string) {
 
 	// Parse the last line
 	parts := strings.Split(lastLine, ",")
-	if len(parts) < 6 {
+	if len(parts) < 5 {
 		log.Printf("Invalid line format in %s: %s", file, lastLine)
 		return
 	}
