@@ -164,7 +164,7 @@ func main() {
 	// Get the refresh interval from the environment variable
 	refreshIntervalStr := os.Getenv("REFRESH_INTERVAL")
 	if refreshIntervalStr == "" {
-		refreshIntervalStr = "5" // Default to 30 seconds
+		refreshIntervalStr = "30" // Default to 30 seconds
 	}
 
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
@@ -175,7 +175,7 @@ func main() {
 	// Get the stale threshold from the environment variable
 	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
 	if staleThresholdStr == "" {
-		staleThresholdStr = "10" // Default to 300 seconds (5 minutes)
+		staleThresholdStr = "300" // Default to 300 seconds (5 minutes)
 	}
 
 	staleThresholdSeconds, err := strconv.Atoi(staleThresholdStr)
@@ -197,7 +197,7 @@ func main() {
 	}()
 
 	// Start the HTTP server
-	addr := ":7777"
+	addr := ":8080"
 	fmt.Printf("Starting metrics server at %s with refresh interval %d seconds and stale threshold %d seconds\n", addr, refreshInterval, staleThresholdSeconds)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %v", err)
