@@ -22,7 +22,7 @@ var (
 			Name: "govee_h5075_temperature",
 			Help: "Temperature readings from Govee H5075 sensors",
 		},
-		[]string{"name"},
+		[]string{"name", "timestamp"},
 	)
 
 	humidityGauge = prometheus.NewGaugeVec(
@@ -30,7 +30,7 @@ var (
 			Name: "govee_h5075_humidity",
 			Help: "Humidity readings from Govee H5075 sensors",
 		},
-		[]string{"name"},
+		[]string{"name", "timestamp"},
 	)
 
 	batteryGauge = prometheus.NewGaugeVec(
@@ -38,7 +38,7 @@ var (
 			Name: "govee_h5075_battery",
 			Help: "Battery levels of Govee H5075 sensors",
 		},
-		[]string{"name"},
+		[]string{"name", "timestamp"},
 	)
 )
 
@@ -112,12 +112,13 @@ func parseFileAndUpdateMetrics(file, location string) {
 
 	// Parse the last line
 	parts := strings.Split(lastLine, ",")
-	if len(parts) < 5 {
+	if len(parts) < 6 {
 		log.Printf("Invalid line format in %s: %s", file, lastLine)
 		return
 	}
 
-	// Extract and parse temperature, humidity, and battery
+	// Extract and parse timestamp, temperature, humidity, and battery
+	timestamp := parts[0]
 	temp, err := strconv.ParseFloat(parts[2], 64)
 	if err != nil {
 		log.Printf("Error parsing temperature in %s: %s", file, err)
@@ -137,9 +138,9 @@ func parseFileAndUpdateMetrics(file, location string) {
 	}
 
 	// Update Prometheus metrics
-	temperatureGauge.WithLabelValues(location).Set(temp)
-	humidityGauge.WithLabelValues(location).Set(humidity)
-	batteryGauge.WithLabelValues(location).Set(battery)
+	temperatureGauge.WithLabelValues(location, timestamp).Set(temp)
+	humidityGauge.WithLabelValues(location, timestamp).Set(humidity)
+	batteryGauge.WithLabelValues(location, timestamp).Set(battery)
 }
 
 func checkForStaleMetrics() {
