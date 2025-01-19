@@ -1,4 +1,4 @@
-name: govee-h5057-prom-exporter-arm64v8
+name: govee-h5075-prom-exporter-arm64v8
 
 on:
   workflow_dispatch:
@@ -27,6 +27,6 @@ jobs:
           push: true
           context: "${{ github.server_url }}/${{ github.repository }}.git#${{ github.ref }}"
           tags: |
-            ${{ secrets.DOCKERHUB_SLUG }}/govee-h5057-prom-exporter:arm64v8-latest
-            ${{ secrets.DOCKERHUB_SLUG }}/govee-h5057-prom-exporter:arm64v8-${{github.run_number}}
+            ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-latest
+            ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-${{github.run_number}}
           platforms: linux/arm64
