@@ -17,5 +17,5 @@ services:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # Mount DBus socket
-    #  - ~/.known_govees:/app/.known_govees:ro # Mount .known_govees as read-only
+      - ./.known_govees:/app/.known_govees:ro # Mount .known_govees as read-only
     restart: unless-stopped
