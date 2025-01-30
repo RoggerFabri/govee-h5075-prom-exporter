@@ -239,6 +239,11 @@ func main() {
 
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	go startBLEScanner()
 
 	go func() {
@@ -250,8 +255,8 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 
-	addr := ":8080"
-	fmt.Printf("Starting metrics server at %s with refresh interval %d seconds and stale threshold %d seconds\n", addr, refreshInterval, staleThresholdSeconds)
+	addr := ":" + port
+	fmt.Printf("Starting metrics server on port %s with refresh interval %d seconds and stale threshold %d seconds\n", port, refreshInterval, staleThresholdSeconds)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %v", err)
 	}
