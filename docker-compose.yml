@@ -11,6 +11,7 @@ services:
     devices:
       - "/dev/bus/usb:/dev/bus/usb"
     environment:
+      - PORT=8080
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
