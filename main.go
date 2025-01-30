@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"tinygo.org/x/bluetooth"
 )
 
 var (
@@ -42,12 +42,19 @@ var (
 	)
 )
 
-// Track the last update time for each file
-var lastUpdateTime = make(map[string]time.Time)
-var mutex = &sync.Mutex{} // Protect access to the lastUpdateTime map
+type KnownGovee struct {
+	Name           string
+	TempOffset     float64
+	HumidityOffset float64
+}
 
-// Default thresholds
-var staleThreshold time.Duration
+var (
+	adapter        = bluetooth.DefaultAdapter
+	knownGovees    = make(map[string]KnownGovee)
+	lastUpdateTime = make(map[string]time.Time)
+	mutex          = &sync.Mutex{}
+	staleThreshold time.Duration
+)
 
 func init() {
 	// Register Prometheus metrics
@@ -56,90 +63,133 @@ func init() {
 	prometheus.MustRegister(batteryGauge)
 }
 
-func parseLogsAndUpdateMetrics(logDir string) {
-	files, err := filepath.Glob(filepath.Join(logDir, "*.log"))
+func loadKnownGovees() {
+	knownFile := ".known_govees"
+	file, err := os.Open(knownFile)
 	if err != nil {
-		log.Printf("Error finding log files in %s: %v", logDir, err)
-		return
+		log.Fatalf("Error opening known devices file %s: %v", knownFile, err)
 	}
+	defer file.Close()
 
-	for _, file := range files {
-		location := strings.TrimSuffix(filepath.Base(file), ".log")
+	newMap := make(map[string]KnownGovee)
 
-		// Get file info to check modification time
-		fileInfo, err := os.Stat(file)
-		if err != nil {
-			log.Printf("Error getting file info for %s: %v", file, err)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 4 {
+			log.Printf("Skipping invalid line in known devices file: %s", scanner.Text())
 			continue
 		}
 
-		// Check last modification time
-		modTime := fileInfo.ModTime()
+		mac := strings.ToUpper(fields[0])
+		name := fields[1]
+		tempOffset, err1 := strconv.ParseFloat(fields[2], 64)
+		humidityOffset, err2 := strconv.ParseFloat(fields[3], 64)
 
-		// Update last modification time
-		mutex.Lock()
-		lastUpdateTime[location] = modTime
-		mutex.Unlock()
+		if err1 != nil || err2 != nil {
+			log.Printf("Skipping line with invalid offsets in known devices file: %s", scanner.Text())
+			continue
+		}
 
-		// Parse the file's contents to update metrics
-		parseFileAndUpdateMetrics(file, location)
-	}
-
-	// Check for stale metrics
-	checkForStaleMetrics()
-}
-
-func parseFileAndUpdateMetrics(file, location string) {
-	// Open the log file
-	f, err := os.Open(file)
-	if err != nil {
-		log.Printf("Error opening file %s: %v", file, err)
-		return
-	}
-	defer f.Close()
-
-	// Read the file's contents
-	scanner := bufio.NewScanner(f)
-	var lastLine string
-	for scanner.Scan() {
-		lastLine = scanner.Text() // Keep only the last line
+		newMap[mac] = KnownGovee{Name: name, TempOffset: tempOffset, HumidityOffset: humidityOffset}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("Error reading file %s: %v", file, err)
-		return
+		log.Printf("Error reading known devices file: %v", err)
 	}
 
-	// Parse the last line
-	parts := strings.Split(lastLine, ",")
-	if len(parts) < 5 {
-		log.Printf("Invalid line format in %s: %s", file, lastLine)
-		return
+	mutex.Lock()
+	knownGovees = newMap
+	mutex.Unlock()
+
+	log.Println("Loaded known Govee H5075 devices:", knownGovees)
+}
+
+func startBLEScanner() {
+	if err := adapter.Enable(); err != nil {
+		log.Fatalf("Failed to enable Bluetooth adapter: %v", err)
 	}
 
-	// Extract and parse temperature, humidity, and battery
-	temp, err := strconv.ParseFloat(parts[2], 64)
+	log.Println("Scanning for Govee H5075 devices...")
+	err := adapter.Scan(scanCallback)
 	if err != nil {
-		log.Printf("Error parsing temperature in %s: %s", file, err)
+		log.Fatalf("Failed to start scanning: %v", err)
+	}
+}
+
+func scanCallback(adapter *bluetooth.Adapter, device bluetooth.ScanResult) {
+	macAddr := strings.ToUpper(device.Address.String())
+
+	mutex.Lock()
+	govee, exists := knownGovees[macAddr]
+	mutex.Unlock()
+
+	if !exists {
+		log.Printf("Ignoring unknown device: %s", macAddr)
 		return
 	}
 
-	humidity, err := strconv.ParseFloat(parts[3], 64)
-	if err != nil {
-		log.Printf("Error parsing humidity in %s: %s", file, err)
+	// Get Manufacturer Data
+	manufacturerDataElements := device.ManufacturerData()
+	if len(manufacturerDataElements) == 0 {
+		return // No manufacturer data, ignore
+	}
+
+	// Extract manufacturer data payload
+	for _, element := range manufacturerDataElements {
+		if element.CompanyID == 0xEC88 { // Govee Manufacturer ID
+			parseGoveeData(govee, element.Data)
+		}
+	}
+}
+
+func parseGoveeData(govee KnownGovee, data []byte) {
+	if len(data) < 5 {
+		log.Printf("[%s] Ignoring invalid data (length: %d): %v", govee.Name, len(data), data)
 		return
 	}
 
-	battery, err := strconv.ParseFloat(parts[4], 64)
-	if err != nil {
-		log.Printf("Error parsing battery in %s: %s", file, err)
-		return
+	// Extract the 3-byte temperature/humidity raw value (Big Endian)
+	raw := uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
+
+	// Handle negative temperatures (if the highest bit is set)
+	var isNegative bool
+	if raw&0x800000 != 0 {
+		isNegative = true
+		raw ^= 0x800000
+	}
+
+	// Extract temperature & humidity
+	temperature := float64(int(raw/1000)) / 10.0
+	if isNegative {
+		temperature = -temperature
+	}
+	humidity := float64(raw%1000) / 10.0
+
+	// Extract battery level (last byte)
+	batteryLevel := int(data[4])
+
+	// Apply offsets from .known_govees
+	temperature += govee.TempOffset
+	humidity += govee.HumidityOffset
+
+	// Prevent impossible humidity values (> 100%)
+	if humidity > 100.0 {
+		log.Printf("[%s] WARNING: Invalid Humidity Value %.2f%% (Ignoring)", govee.Name, humidity)
+		humidity = 100.0
 	}
 
 	// Update Prometheus metrics
-	temperatureGauge.WithLabelValues(location).Set(temp)
-	humidityGauge.WithLabelValues(location).Set(humidity)
-	batteryGauge.WithLabelValues(location).Set(battery)
+	temperatureGauge.WithLabelValues(govee.Name).Set(temperature)
+	humidityGauge.WithLabelValues(govee.Name).Set(humidity)
+	batteryGauge.WithLabelValues(govee.Name).Set(float64(batteryLevel))
+
+	// Update last seen time
+	mutex.Lock()
+	lastUpdateTime[govee.Name] = time.Now()
+	mutex.Unlock()
+
+	log.Printf("[%s] Temp: %.2f°C | Humidity: %.2f%% | Battery: %d%%", govee.Name, temperature, humidity, batteryLevel)
 }
 
 func checkForStaleMetrics() {
@@ -147,56 +197,59 @@ func checkForStaleMetrics() {
 	defer mutex.Unlock()
 
 	now := time.Now()
-	for location, modTime := range lastUpdateTime {
-		// Reset metrics if the file has not been modified within the threshold
-		if now.Sub(modTime) > staleThreshold {
-			temperatureGauge.DeleteLabelValues(location)
-			humidityGauge.DeleteLabelValues(location)
-			batteryGauge.DeleteLabelValues(location)
-			log.Printf("Metrics for %s have been reset due to inactivity (last modified at %s)", location, modTime)
+	for device, lastSeen := range lastUpdateTime {
+		if now.Sub(lastSeen) > staleThreshold {
+			temperatureGauge.DeleteLabelValues(device)
+			humidityGauge.DeleteLabelValues(device)
+			batteryGauge.DeleteLabelValues(device)
+			log.Printf("Metrics for %s reset due to inactivity (last seen at %s)", device, lastSeen)
 		}
 	}
 }
 
 func main() {
-	logDir := "logs" // Directory where log files are located
+	loadKnownGovees()
 
-	// Get the refresh interval from the environment variable
+	go func() {
+		for {
+			time.Sleep(60 * time.Second)
+			loadKnownGovees()
+		}
+	}()
+
 	refreshIntervalStr := os.Getenv("REFRESH_INTERVAL")
 	if refreshIntervalStr == "" {
-		refreshIntervalStr = "30" // Default to 30 seconds
+		refreshIntervalStr = "30"
 	}
 
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
 	if err != nil || refreshInterval <= 0 {
-		log.Fatalf("Invalid REFRESH_INTERVAL value: %s. Must be a positive integer.", refreshIntervalStr)
+		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
 	}
 
-	// Get the stale threshold from the environment variable
 	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
 	if staleThresholdStr == "" {
-		staleThresholdStr = "300" // Default to 300 seconds (5 minutes)
+		staleThresholdStr = "300"
 	}
 
 	staleThresholdSeconds, err := strconv.Atoi(staleThresholdStr)
 	if err != nil || staleThresholdSeconds <= 0 {
-		log.Fatalf("Invalid STALE_THRESHOLD value: %s. Must be a positive integer.", staleThresholdStr)
+		log.Fatalf("Invalid STALE_THRESHOLD: %s", staleThresholdStr)
 	}
 
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
 
-	// Set up the HTTP handler for /metrics
-	http.Handle("/metrics", promhttp.Handler())
+	go startBLEScanner()
 
-	// Background loop to update metrics
 	go func() {
 		for {
-			parseLogsAndUpdateMetrics(logDir)
 			time.Sleep(time.Duration(refreshInterval) * time.Second)
+			checkForStaleMetrics()
 		}
 	}()
 
-	// Start the HTTP server
+	http.Handle("/metrics", promhttp.Handler())
+
 	addr := ":8080"
 	fmt.Printf("Starting metrics server at %s with refresh interval %d seconds and stale threshold %d seconds\n", addr, refreshInterval, staleThresholdSeconds)
 	if err := http.ListenAndServe(addr, nil); err != nil {
