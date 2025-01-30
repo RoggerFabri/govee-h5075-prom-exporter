@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  govee-metrics:
+  govee-h5075-prom-exporter:
     build: .
     container_name: govee-h5075-prom-exporter
     network_mode: "host"  # Required for Bluetooth access
