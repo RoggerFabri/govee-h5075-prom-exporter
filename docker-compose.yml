@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  govee-metrics:
+    build: .
+    container_name: govee-h5075-prom-exporter
+    network_mode: "host"  # Required for Bluetooth access
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"
+    environment:
+      - REFRESH_INTERVAL=30
+      - STALE_THRESHOLD=300
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+    volumes:
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # Mount DBus socket
+    #  - ~/.known_govees:/app/.known_govees:ro # Mount .known_govees as read-only
+    restart: unless-stopped
