@@ -81,7 +81,7 @@ volumes:
 
 ### **📜 `docker-compose.yml`**
 ```yaml
-version: "3.8"
+version: "3.9"
 
 services:
   govee-h5075-prom-exporter:
