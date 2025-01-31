@@ -35,7 +35,7 @@ EXPOSE 8080
 
 # Add health check using wget
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD wget --spider -q http://localhost:8080 || exit 1
+  CMD wget --spider -q http://localhost:8080/metrics || exit 1
 
 # Command to run the application
 ENTRYPOINT ["./govee_exporter"]
