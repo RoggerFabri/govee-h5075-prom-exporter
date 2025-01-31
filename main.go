@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -253,12 +255,35 @@ func main() {
 		}
 	}()
 
-	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
 
-	addr := ":" + port
-	fmt.Printf("Starting metrics server on port %s with refresh interval %d seconds and stale threshold %d seconds\n", port, refreshInterval, staleThresholdSeconds)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatalf("Error starting HTTP server: %v", err)
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	// Set up signal handling for graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting metrics server on port %s with refresh interval %d seconds and stale threshold %d seconds\n", port, refreshInterval, staleThresholdSeconds)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-stop
+	log.Println("Shutting down...")
+
+	// Graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Error during server shutdown: %v", err)
 	}
 }
