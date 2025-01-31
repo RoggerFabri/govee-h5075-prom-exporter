@@ -27,14 +27,15 @@ RUN apk --no-cache add ca-certificates && \
 # Set the working directory in the runtime container
 WORKDIR /app
 
-# Create a logs directory
-RUN mkdir logs
-
 # Copy the built application from the builder stage
 COPY --from=builder /app/govee_exporter .
 
 # Expose the default HTTP port
 EXPOSE 8080
+
+# Add health check using wget
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD wget --spider -q http://localhost:8080 || exit 1
 
 # Command to run the application
 ENTRYPOINT ["./govee_exporter"]
