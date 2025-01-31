@@ -254,6 +254,7 @@ func main() {
 	}()
 
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
 
 	addr := ":" + port
 	fmt.Printf("Starting metrics server on port %s with refresh interval %d seconds and stale threshold %d seconds\n", port, refreshInterval, staleThresholdSeconds)
