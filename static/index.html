@@ -31,15 +31,33 @@
             color: #333;
         }
         .gauge-container {
+            margin: 20px auto;
+            text-align: center;
+        }
+        .gauge-wrapper {
             width: 200px;
-            height: 200px;
+            height: 150px;
             margin: 0 auto;
+            position: relative;
+        }
+        .gauge-label {
+            text-align: center;
+            font-size: 1em;
+            color: #666;
+            margin-top: 5px;
         }
         .last-updated {
             text-align: center;
             color: #666;
             font-size: 0.9em;
-            margin-top: 10px;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .value-label {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -47,15 +65,32 @@
     <div class="container" id="sensors-container"></div>
 
     <script>
-        function createGauge(element, value, maxValue, title, color) {
-            return GaugeChart.gaugeChart(element, {
-                hasNeedle: true,
-                needleColor: "#1e88e5",
-                needleUpdateSpeed: 1000,
+        function createGauge(element, value, maxValue, title, color, unit) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'gauge-container';
+            
+            const gaugeDiv = document.createElement('div');
+            gaugeDiv.className = 'gauge-wrapper';
+            wrapper.appendChild(gaugeDiv);
+            
+            const label = document.createElement('div');
+            label.className = 'gauge-label';
+            label.textContent = title;
+            wrapper.appendChild(label);
+
+            const valueLabel = document.createElement('div');
+            valueLabel.className = 'value-label';
+            valueLabel.textContent = `${value.toFixed(1)}${unit}`;
+            wrapper.appendChild(valueLabel);
+
+            element.appendChild(wrapper);
+
+            return GaugeChart.gaugeChart(gaugeDiv, {
+                hasNeedle: false,
                 arcColors: [color, "#e0e0e0"],
                 arcDelimiters: [value * 100 / maxValue],
-                rangeLabel: [`0`, maxValue.toString()],
-                centralLabel: value.toString(),
+                rangeLabel: [`0${unit}`, `${maxValue}${unit}`],
+                centralLabel: '',
             });
         }
 
@@ -86,19 +121,24 @@
                         const card = document.createElement('div');
                         card.className = 'sensor-card';
                         
-                        card.innerHTML = `
-                            <h2 class="sensor-title">${sensorName}</h2>
-                            <div class="gauge-container" id="${sensorName}-temp"></div>
-                            <div class="gauge-container" id="${sensorName}-humidity"></div>
-                            <div class="gauge-container" id="${sensorName}-battery"></div>
-                            <div class="last-updated">Last updated: ${new Date().toLocaleTimeString()}</div>
-                        `;
+                        const title = document.createElement('h2');
+                        title.className = 'sensor-title';
+                        title.textContent = sensorName;
+                        card.appendChild(title);
+
+                        const gaugesDiv = document.createElement('div');
+                        card.appendChild(gaugesDiv);
+
+                        createGauge(gaugesDiv, values.govee_h5075_temperature, 50, 'Temperature', '#ff4081', '°C');
+                        createGauge(gaugesDiv, values.govee_h5075_humidity, 100, 'Humidity', '#2196f3', '%');
+                        createGauge(gaugesDiv, values.govee_h5075_battery, 100, 'Battery', '#4caf50', '%');
+
+                        const lastUpdated = document.createElement('div');
+                        lastUpdated.className = 'last-updated';
+                        lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+                        card.appendChild(lastUpdated);
                         
                         container.appendChild(card);
-
-                        createGauge(`#${sensorName}-temp`, values.govee_h5075_temperature, 50, 'Temperature', '#ff4081');
-                        createGauge(`#${sensorName}-humidity`, values.govee_h5075_humidity, 100, 'Humidity', '#2196f3');
-                        createGauge(`#${sensorName}-battery`, values.govee_h5075_battery, 100, 'Battery', '#4caf50');
                     });
                 })
                 .catch(error => console.error('Error fetching metrics:', error));
