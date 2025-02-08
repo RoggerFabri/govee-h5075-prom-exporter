@@ -58,6 +58,14 @@ var (
 	staleThreshold time.Duration
 )
 
+const (
+	defaultPort            = "8080"
+	defaultRefreshInterval = "30"
+	defaultStaleThreshold  = "300"
+	goveeManufacturerID    = uint16(0xEC88)
+	shutdownTimeout        = 5 * time.Second
+)
+
 func init() {
 	// Register Prometheus metrics
 	prometheus.MustRegister(temperatureGauge)
@@ -108,14 +116,29 @@ func loadKnownGovees() {
 }
 
 func startBLEScanner() {
-	if err := adapter.Enable(); err != nil {
-		log.Fatalf("Failed to enable Bluetooth adapter: %v", err)
+	// Add retry logic for enabling the adapter
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		if err := adapter.Enable(); err != nil {
+			if i == maxRetries-1 {
+				log.Fatalf("Failed to enable Bluetooth adapter after %d attempts: %v", maxRetries, err)
+			}
+			log.Printf("Failed to enable Bluetooth adapter (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		break
 	}
 
 	log.Println("Scanning for Govee H5075 devices...")
-	err := adapter.Scan(scanCallback)
-	if err != nil {
-		log.Fatalf("Failed to start scanning: %v", err)
+	// Add continuous retry for scanner
+	for {
+		err := adapter.Scan(scanCallback)
+		if err != nil {
+			log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
 	}
 }
 
@@ -151,6 +174,20 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 		return
 	}
 
+	// Validate data[1:4] contains valid temperature/humidity encoding
+	if data[1] == 0 && data[2] == 0 && data[3] == 0 {
+		log.Printf("[%s] Ignoring invalid zero readings", govee.Name)
+		return
+	}
+
+	// Add reasonable bounds checking
+	const (
+		minTemp     = -40.0
+		maxTemp     = 60.0
+		minHumidity = 0.0
+		maxHumidity = 100.0
+	)
+
 	// Extract the 3-byte temperature/humidity raw value (Big Endian)
 	raw := uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
 
@@ -168,18 +205,23 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	}
 	humidity := float64(raw%1000) / 10.0
 
+	// Validate temperature and humidity before applying offsets
+	if temperature < minTemp || temperature > maxTemp {
+		log.Printf("[%s] WARNING: Invalid Temperature Value %.2f°C (Ignoring)", govee.Name, temperature)
+		return
+	}
+
+	if humidity < minHumidity || humidity > maxHumidity {
+		log.Printf("[%s] WARNING: Invalid Humidity Value %.2f%% (Ignoring)", govee.Name, humidity)
+		return
+	}
+
 	// Extract battery level (last byte)
 	batteryLevel := int(data[4])
 
 	// Apply offsets from .known_govees
 	temperature += govee.TempOffset
 	humidity += govee.HumidityOffset
-
-	// Prevent impossible humidity values (> 100%)
-	if humidity > 100.0 {
-		log.Printf("[%s] WARNING: Invalid Humidity Value %.2f%% (Ignoring)", govee.Name, humidity)
-		humidity = 100.0
-	}
 
 	// Update Prometheus metrics
 	temperatureGauge.WithLabelValues(govee.Name).Set(temperature)
@@ -219,19 +261,24 @@ func main() {
 		}
 	}()
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
+
 	refreshIntervalStr := os.Getenv("REFRESH_INTERVAL")
 	if refreshIntervalStr == "" {
-		refreshIntervalStr = "30"
+		refreshIntervalStr = defaultRefreshInterval
+	}
+
+	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
+	if staleThresholdStr == "" {
+		staleThresholdStr = defaultStaleThreshold
 	}
 
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
 	if err != nil || refreshInterval <= 0 {
 		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
-	}
-
-	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
-	if staleThresholdStr == "" {
-		staleThresholdStr = "300"
 	}
 
 	staleThresholdSeconds, err := strconv.Atoi(staleThresholdStr)
@@ -240,11 +287,6 @@ func main() {
 	}
 
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 
 	go startBLEScanner()
 
@@ -257,6 +299,10 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 	mux.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
 
 	server := &http.Server{
@@ -281,7 +327,7 @@ func main() {
 	log.Println("Shutting down...")
 
 	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("Error during server shutdown: %v", err)
