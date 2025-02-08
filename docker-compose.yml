@@ -2,9 +2,7 @@ version: "3.9"
 
 services:
   govee-h5075-prom-exporter:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: govee-h5075-prom-exporter
     network_mode: "host"  # Required for Bluetooth access
     cap_add:
