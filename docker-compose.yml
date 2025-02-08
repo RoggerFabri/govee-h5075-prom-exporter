@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   govee-h5075-prom-exporter:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: govee-h5075-prom-exporter
     network_mode: "host"  # Required for Bluetooth access
     cap_add:
@@ -10,6 +12,8 @@ services:
       - NET_RAW
     devices:
       - "/dev/bus/usb:/dev/bus/usb"
+    ports:
+      - "8080:8080"
     environment:
       - PORT=8080
       - REFRESH_INTERVAL=30

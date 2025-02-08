@@ -1,5 +1,25 @@
-# Stage 1: Build the Go application
-FROM golang:1.23.4 AS builder
+# Stage 1: Build the Flutter web application
+FROM dart:stable AS flutter_builder
+
+# Install Flutter
+RUN git clone https://github.com/flutter/flutter.git /flutter
+ENV PATH="/flutter/bin:${PATH}"
+RUN flutter doctor
+RUN flutter config --enable-web
+
+# Set up web app directory
+WORKDIR /app/web_ui
+
+# Copy all Flutter project files
+COPY pubspec.* ./
+COPY web/ ./web/
+COPY lib/ ./lib/
+
+RUN flutter pub get
+RUN flutter build web --release
+
+# Stage 2: Build the Go application
+FROM golang:1.23.4 AS go_builder
 
 # Set environment variables for cross-compilation
 ENV CGO_ENABLED=0
@@ -17,7 +37,7 @@ COPY . .
 # Build the Go application
 RUN go build -ldflags="-w -s" -o govee_exporter main.go
 
-# Stage 2: Create a minimal runtime container
+# Stage 3: Create a minimal runtime container
 FROM alpine:3.21
 
 # Container metadata
@@ -34,8 +54,9 @@ RUN apk update && \
 # Set the working directory in the runtime container
 WORKDIR /app
 
-# Copy the built application from the builder stage
-COPY --from=builder /app/govee_exporter .
+# Copy the built applications from builder stages
+COPY --from=go_builder /app/govee_exporter .
+COPY --from=flutter_builder /app/web_ui/build/web ./web
 RUN chown -R appuser:appgroup /app
 
 USER appuser
@@ -45,7 +66,7 @@ EXPOSE 8080
 
 # Add health check using wget
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD wget --spider -q http://localhost:8080/metrics || exit 1
+  CMD wget --spider -q http://localhost:8080/health || exit 1
 
 # Command to run the application
 ENTRYPOINT ["./govee_exporter"]

@@ -251,6 +251,21 @@ func checkForStaleMetrics() {
 	}
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding")
+		
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	loadKnownGovees()
 
@@ -298,12 +313,17 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	
+	// Serve Flutter web app files
+	fs := http.FileServer(http.Dir("web"))
+	mux.Handle("/", fs)
+	
+	// API endpoints
+	mux.Handle("/metrics", corsMiddleware(promhttp.Handler()))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	mux.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
 
 	server := &http.Server{
 		Addr:    ":" + port,
