@@ -303,7 +303,10 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	mux.Handle("/", http.RedirectHandler("/metrics", http.StatusFound))
+
+	// Serve static files
+	fs := http.FileServer(http.Dir("static"))
+	mux.Handle("/", fs)
 
 	server := &http.Server{
 		Addr:    ":" + port,

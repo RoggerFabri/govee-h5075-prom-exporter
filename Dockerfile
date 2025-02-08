@@ -11,7 +11,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the application source code
+# Copy the application source code and static files
 COPY . .
 
 # Build the Go application
@@ -34,8 +34,9 @@ RUN apk update && \
 # Set the working directory in the runtime container
 WORKDIR /app
 
-# Copy the built application from the builder stage
+# Copy the built application and static files from the builder stage
 COPY --from=builder /app/govee_exporter .
+COPY --from=builder /app/static ./static
 RUN chown -R appuser:appgroup /app
 
 USER appuser
@@ -45,7 +46,7 @@ EXPOSE 8080
 
 # Add health check using wget
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD wget --spider -q http://localhost:8080/metrics || exit 1
+  CMD wget --spider -q http://localhost:8080/health || exit 1
 
 # Command to run the application
 ENTRYPOINT ["./govee_exporter"]
