@@ -14,50 +14,60 @@
         .container {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 15px;
             justify-content: center;
         }
         .sensor-card {
             background: white;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             width: 300px;
         }
         .sensor-title {
             text-align: center;
-            margin-bottom: 15px;
+            margin: 0 0 10px 0;
             font-size: 1.2em;
             color: #333;
         }
+        .gauges-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
         .gauge-container {
-            margin: 20px auto;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border-radius: 4px;
+            background: #f8f9fa;
         }
         .gauge-wrapper {
-            width: 200px;
-            height: 150px;
-            margin: 0 auto;
-            position: relative;
+            width: 100px;
+            height: 60px;
+            flex-shrink: 0;
+        }
+        .gauge-info {
+            margin-left: 10px;
+            flex-grow: 1;
         }
         .gauge-label {
-            text-align: center;
-            font-size: 1em;
+            font-size: 0.9em;
             color: #666;
-            margin-top: 5px;
+            margin-bottom: 2px;
+        }
+        .value-label {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
         }
         .last-updated {
             text-align: center;
             color: #666;
-            font-size: 0.9em;
-            margin-top: 20px;
+            font-size: 0.8em;
+            margin-top: 10px;
             border-top: 1px solid #eee;
-            padding-top: 10px;
-        }
-        .value-label {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-top: 5px;
+            padding-top: 8px;
         }
     </style>
 </head>
@@ -68,24 +78,28 @@
         function createGauge(element, value, maxValue, title, color, unit) {
             const wrapper = document.createElement('div');
             wrapper.className = 'gauge-container';
-            
-            const gaugeDiv = document.createElement('div');
-            gaugeDiv.className = 'gauge-wrapper';
-            wrapper.appendChild(gaugeDiv);
+
+            const gaugeWrapper = document.createElement('div');
+            gaugeWrapper.className = 'gauge-wrapper';
+            wrapper.appendChild(gaugeWrapper);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'gauge-info';
             
             const label = document.createElement('div');
             label.className = 'gauge-label';
             label.textContent = title;
-            wrapper.appendChild(label);
+            infoDiv.appendChild(label);
 
             const valueLabel = document.createElement('div');
             valueLabel.className = 'value-label';
             valueLabel.textContent = `${value.toFixed(1)}${unit}`;
-            wrapper.appendChild(valueLabel);
+            infoDiv.appendChild(valueLabel);
 
+            wrapper.appendChild(infoDiv);
             element.appendChild(wrapper);
 
-            return GaugeChart.gaugeChart(gaugeDiv, {
+            return GaugeChart.gaugeChart(gaugeWrapper, {
                 hasNeedle: false,
                 arcColors: [color, "#e0e0e0"],
                 arcDelimiters: [value * 100 / maxValue],
@@ -127,6 +141,7 @@
                         card.appendChild(title);
 
                         const gaugesDiv = document.createElement('div');
+                        gaugesDiv.className = 'gauges-container';
                         card.appendChild(gaugesDiv);
 
                         createGauge(gaugesDiv, values['govee_h5075_temperature'], 50, 'Temperature', '#ff4081', '°C');
