@@ -111,7 +111,7 @@
                         if (!metrics[sensorName]) {
                             metrics[sensorName] = {};
                         }
-                        metrics[sensorName][metricName] = parseFloat(value);
+                        metrics[sensorName][metricName.trim()] = parseFloat(value);
                     });
 
                     const container = document.getElementById('sensors-container');
@@ -129,9 +129,9 @@
                         const gaugesDiv = document.createElement('div');
                         card.appendChild(gaugesDiv);
 
-                        createGauge(gaugesDiv, values.govee_h5075_temperature, 50, 'Temperature', '#ff4081', '°C');
-                        createGauge(gaugesDiv, values.govee_h5075_humidity, 100, 'Humidity', '#2196f3', '%');
-                        createGauge(gaugesDiv, values.govee_h5075_battery, 100, 'Battery', '#4caf50', '%');
+                        createGauge(gaugesDiv, values['govee_h5075_temperature'], 50, 'Temperature', '#ff4081', '°C');
+                        createGauge(gaugesDiv, values['govee_h5075_humidity'], 100, 'Humidity', '#2196f3', '%');
+                        createGauge(gaugesDiv, values['govee_h5075_battery'], 100, 'Battery', '#4caf50', '%');
 
                         const lastUpdated = document.createElement('div');
                         lastUpdated.className = 'last-updated';
