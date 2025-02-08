@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Govee H5075 Metrics</title>
-    <script src="https://cdn.jsdelivr.net/npm/gauge-chart@0.5.3/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" async></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             margin: 20px;
-            background-color: #f0f2f5;
+            background-color: #e9ecef;
         }
         .container {
             display: flex;
@@ -17,19 +17,25 @@
             gap: 15px;
             justify-content: center;
             margin-top: 20px;
+            position: relative;
+            padding-top: 30px;
         }
         .sensor-card {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            width: 300px;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 320px;
+            transition: transform 0.2s;
+        }
+        .sensor-card:hover {
+            transform: translateY(-5px);
         }
         .sensor-title {
             text-align: center;
-            margin: 0 0 10px 0;
-            font-size: 1.2em;
-            color: #333;
+            margin: 0 0 15px 0;
+            font-size: 1.4em;
+            color: #444;
         }
         .gauges-container {
             display: flex;
@@ -39,61 +45,65 @@
         .gauge-container {
             display: flex;
             align-items: center;
-            padding: 5px;
-            border-radius: 4px;
-            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            background: #f1f3f5;
         }
         .gauge-wrapper {
-            width: 100px;
-            height: 60px;
+            width: 150px;
+            height: 150px;
             flex-shrink: 0;
+            position: relative;
         }
         .gauge-info {
-            margin-left: 10px;
-            flex-grow: 1;
+            width: 80px;
+            margin-right: 10px;
+            flex-shrink: 0;
         }
         .gauge-label {
-            font-size: 0.9em;
-            color: #666;
-            margin-bottom: 2px;
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 4px;
         }
         .value-label {
-            font-size: 1.1em;
+            font-size: 1.2em;
             font-weight: bold;
-            color: #333;
+            color: #222;
         }
         .last-updated {
-            text-align: center;
-            color: #666;
-            font-size: 0.8em;
-            margin-top: 10px;
-            border-top: 1px solid #eee;
-            padding-top: 8px;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #777;
+            font-size: 0.9em;
         }
         .progress-container {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
-            background: #ddd;
+            height: 5px;
+            background: #ccc;
             z-index: 1000;
         }
         
         .progress-bar {
             height: 100%;
             width: 100%;
-            background: #2196f3;
+            background: linear-gradient(90deg, #2196f3, #21cbf3);
             transform-origin: left;
             transition: transform 1s linear;
         }
     </style>
 </head>
 <body>
-    <div class="progress-container">
+    <div class="progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar" id="updateProgress"></div>
     </div>
-    <div class="container" id="sensors-container"></div>
+    <div class="container" id="sensors-container" role="main">
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
 
     <script>
         const REFRESH_INTERVAL = 30000; // 30 seconds in milliseconds
@@ -111,13 +121,17 @@
             }
         }
 
-        function createGauge(element, value, maxValue, title, color, unit) {
+        function createProgressBar(element, value, maxValue, title, color, unit) {
+            console.log(`Creating progress bar: ${title}`);
+            console.log(`Value: ${value}, Max Value: ${maxValue}, Color: ${color}, Unit: ${unit}`);
+
+            if (isNaN(value) || isNaN(maxValue) || value < 0 || maxValue <= 0) {
+                console.error(`Invalid value or maxValue for progress bar: ${title}`);
+                return;
+            }
+
             const wrapper = document.createElement('div');
             wrapper.className = 'gauge-container';
-
-            const gaugeWrapper = document.createElement('div');
-            gaugeWrapper.className = 'gauge-wrapper';
-            wrapper.appendChild(gaugeWrapper);
 
             const infoDiv = document.createElement('div');
             infoDiv.className = 'gauge-info';
@@ -133,22 +147,56 @@
             infoDiv.appendChild(valueLabel);
 
             wrapper.appendChild(infoDiv);
-            element.appendChild(wrapper);
 
-            return GaugeChart.gaugeChart(gaugeWrapper, {
-                hasNeedle: false,
-                arcColors: [color, "#e0e0e0"],
-                arcDelimiters: [value * 100 / maxValue],
-                rangeLabel: [`0${unit}`, `${maxValue}${unit}`],
-                centralLabel: '',
-            });
+            const progressBarWrapper = document.createElement('div');
+            progressBarWrapper.style.width = '100%';
+            progressBarWrapper.style.backgroundColor = '#e0e0e0';
+            progressBarWrapper.style.borderRadius = '4px';
+            progressBarWrapper.style.overflow = 'hidden';
+            progressBarWrapper.style.marginTop = '5px';
+
+            const progressBar = document.createElement('div');
+            progressBar.style.width = `${(value / maxValue) * 100}%`;
+            progressBar.style.height = '20px';
+            progressBar.style.transition = 'width 0.5s ease';
+
+            // Apply color based on the battery percentage
+            if (title === 'Battery') {
+                if (value <= 20) {
+                    progressBar.style.backgroundColor = '#ff0000'; // Red
+                } else if (value <= 50) {
+                    progressBar.style.backgroundColor = '#ffff00'; // Yellow
+                } else {
+                    progressBar.style.backgroundColor = '#4caf50'; // Green
+                }
+            } else if (title === 'Temperature') {
+                if (value <= 10) {
+                    progressBar.style.backgroundColor = '#2196f3'; // Blue
+                } else if (value <= 25) {
+                    progressBar.style.backgroundColor = '#ff9800'; // Orange
+                } else {
+                    progressBar.style.backgroundColor = '#f44336'; // Red
+                }
+            } else {
+                progressBar.style.backgroundColor = color; // Default color
+            }
+
+            progressBarWrapper.appendChild(progressBar);
+            wrapper.appendChild(progressBarWrapper);
+
+            element.appendChild(wrapper);
         }
 
         function updateMetrics() {
             startProgressBar();
             
             fetch('/metrics')
-                .then(response => response.text())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
                 .then(data => {
                     const metrics = {};
                     const lines = data.split('\n');
@@ -167,7 +215,7 @@
                     });
 
                     const container = document.getElementById('sensors-container');
-                    container.innerHTML = '';
+                    container.innerHTML = '<div class="last-updated" id="lastUpdated"></div>';
 
                     Object.entries(metrics).forEach(([sensorName, values]) => {
                         const card = document.createElement('div');
@@ -182,19 +230,27 @@
                         gaugesDiv.className = 'gauges-container';
                         card.appendChild(gaugesDiv);
 
-                        createGauge(gaugesDiv, values['govee_h5075_temperature'], 50, 'Temperature', '#ff4081', '°C');
-                        createGauge(gaugesDiv, values['govee_h5075_humidity'], 100, 'Humidity', '#2196f3', '%');
-                        createGauge(gaugesDiv, values['govee_h5075_battery'], 100, 'Battery', '#4caf50', '%');
+                        if (values['govee_h5075_temperature'] !== undefined) {
+                            createProgressBar(gaugesDiv, values['govee_h5075_temperature'], 30, 'Temperature', '#ff4081', '°C');
+                        }
+                        if (values['govee_h5075_humidity'] !== undefined) {
+                            createProgressBar(gaugesDiv, values['govee_h5075_humidity'], 100, 'Humidity', '#2196f3', '%');
+                        }
+                        if (values['govee_h5075_battery'] !== undefined) {
+                            createProgressBar(gaugesDiv, values['govee_h5075_battery'], 100, 'Battery', '#4caf50', '%');
+                        }
 
-                        const lastUpdated = document.createElement('div');
-                        lastUpdated.className = 'last-updated';
-                        lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
-                        card.appendChild(lastUpdated);
-                        
                         container.appendChild(card);
                     });
+
+                    const lastUpdated = document.getElementById('lastUpdated');
+                    lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
                 })
-                .catch(error => console.error('Error fetching metrics:', error));
+                .catch(error => {
+                    console.error('Error fetching metrics:', error);
+                    const container = document.getElementById('sensors-container');
+                    container.innerHTML = '<div role="alert" style="color: red; text-align: center;">Failed to load metrics. Please try again later.</div>';
+                });
         }
 
         // Initialize progress bar and start updates
@@ -214,4 +270,4 @@
         });
     </script>
 </body>
-</html> 
+</html>
