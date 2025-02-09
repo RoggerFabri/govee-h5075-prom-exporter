@@ -3,271 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Govee H5075 Metrics</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js" async></script>
+    <title>Govee H5075 Sensors Dashboard</title>
     <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --primary-color: #2196f3;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --border-color: #404040;
+            --shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Roboto', sans-serif;
-            margin: 20px;
-            background-color: #e9ecef;
-        }
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 20px;
-            position: relative;
-            padding-top: 30px;
-        }
-        .sensor-card {
-            background: #ffffff;
-            border-radius: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
             padding: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            width: 320px;
-            transition: transform 0.2s;
+            padding-top: 40px;
         }
-        .sensor-card:hover {
-            transform: translateY(-5px);
+
+        .header {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
-        .sensor-title {
-            text-align: center;
-            margin: 0 0 15px 0;
-            font-size: 1.4em;
-            color: #444;
-        }
-        .gauges-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .gauge-container {
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            padding: 10px;
-            border-radius: 6px;
-            background: #f1f3f5;
+            justify-content: center;
+            transition: all 0.3s;
         }
-        .gauge-wrapper {
-            width: 150px;
-            height: 150px;
-            flex-shrink: 0;
-            position: relative;
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
         }
-        .gauge-info {
-            width: 90px;
-            margin-right: 10px;
-            flex-shrink: 0;
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        .gauge-label {
-            font-size: 1em;
-            color: #555;
-            margin-bottom: 4px;
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: fadeIn 0.3s ease-out;
         }
-        .value-label {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #222;
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow), 0 4px 8px rgba(0,0,0,0.1);
         }
-        .last-updated {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #777;
-            font-size: 0.9em;
+
+        .card h2 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            text-transform: none;
         }
-        .progress-container {
+
+        .metric {
+            margin-bottom: 15px;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            opacity: 0.85;
+        }
+
+        .progress {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .temperature .progress {
+            background-color: var(--primary-color);
+        }
+
+        .humidity .progress {
+            background-color: var(--success-color);
+        }
+
+        .battery .progress {
+            background-color: var(--warning-color);
+        }
+
+        .refresh-progress {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            height: 5px;
-            background: #ccc;
+            width: 100%;
+            height: 2px;
+            background: var(--border-color);
             z-index: 1000;
         }
-        
-        .progress-bar {
+
+        .refresh-progress-bar {
             height: 100%;
             width: 100%;
-            background: linear-gradient(90deg, #2196f3, #21cbf3);
+            background: var(--primary-color);
             transform-origin: left;
             transition: transform 1s linear;
+            opacity: 0.7;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+
+        .card.error {
+            border: 1px solid #ff5252;
+        }
+
+        .error-message {
+            color: #ff5252;
+            font-size: 0.9rem;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar" id="updateProgress"></div>
+    <div class="header">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+            <span class="icon sun">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+                </svg>
+            </span>
+            <span class="icon moon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                </svg>
+            </span>
+        </button>
     </div>
-    <div class="container" id="sensors-container" role="main">
-        <div class="last-updated" id="lastUpdated"></div>
+    <div class="refresh-progress">
+        <div class="refresh-progress-bar" id="refreshProgress"></div>
     </div>
+    <div class="container" id="sensors-container"></div>
 
     <script>
-        const REFRESH_INTERVAL = 30000; // 30 seconds in milliseconds
-        let progressBar;
-        let updateTimer;
-
-        function startProgressBar() {
-            if (progressBar) {
-                progressBar.style.transition = 'none';
-                progressBar.style.transform = 'scaleX(1)';
-                // Force reflow
-                progressBar.offsetHeight;
-                progressBar.style.transition = 'transform ' + REFRESH_INTERVAL + 'ms linear';
-                progressBar.style.transform = 'scaleX(0)';
-            }
+        // Theme handling
+        function toggleTheme() {
+            document.documentElement.setAttribute('data-theme', 
+                document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+            );
+            localStorage.setItem('theme', document.documentElement.getAttribute('data-theme'));
         }
 
-        function createProgressBar(element, value, maxValue, title, color, unit) {
-            console.log(`Creating progress bar: ${title}`);
-            console.log(`Value: ${value}, Max Value: ${maxValue}, Color: ${color}, Unit: ${unit}`);
+        // Set initial theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
 
-            if (isNaN(value) || isNaN(maxValue) || value < 0 || maxValue <= 0) {
-                console.error(`Invalid value or maxValue for progress bar: ${title}`);
-                return;
-            }
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'gauge-container';
-
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'gauge-info';
-            
-            const label = document.createElement('div');
-            label.className = 'gauge-label';
-            label.textContent = title;
-            infoDiv.appendChild(label);
-
-            const valueLabel = document.createElement('div');
-            valueLabel.className = 'value-label';
-            valueLabel.textContent = `${value.toFixed(1)}${unit}`;
-            infoDiv.appendChild(valueLabel);
-
-            wrapper.appendChild(infoDiv);
-
-            const progressBarWrapper = document.createElement('div');
-            progressBarWrapper.style.width = '100%';
-            progressBarWrapper.style.backgroundColor = '#e0e0e0';
-            progressBarWrapper.style.borderRadius = '4px';
-            progressBarWrapper.style.overflow = 'hidden';
-            progressBarWrapper.style.marginTop = '5px';
-
-            const progressBar = document.createElement('div');
-            progressBar.style.width = `${(value / maxValue) * 100}%`;
-            progressBar.style.height = '20px';
-            progressBar.style.transition = 'width 0.5s ease';
-
-            // Apply color based on the battery percentage
-            if (title === 'Battery') {
-                if (value <= 20) {
-                    progressBar.style.backgroundColor = '#ff0000'; // Red
-                } else if (value <= 50) {
-                    progressBar.style.backgroundColor = '#ffff00'; // Yellow
-                } else {
-                    progressBar.style.backgroundColor = '#4caf50'; // Green
-                }
-            } else if (title === 'Temperature') {
-                if (value <= 10) {
-                    progressBar.style.backgroundColor = '#2196f3'; // Blue
-                } else if (value <= 25) {
-                    progressBar.style.backgroundColor = '#ff9800'; // Orange
-                } else {
-                    progressBar.style.backgroundColor = '#f44336'; // Red
-                }
-            } else {
-                progressBar.style.backgroundColor = color; // Default color
-            }
-
-            progressBarWrapper.appendChild(progressBar);
-            wrapper.appendChild(progressBarWrapper);
-
-            element.appendChild(wrapper);
+        // Utility functions
+        function normalizeTemp(temp) {
+            return ((temp - 0) / (40 - 0)) * 100;
         }
 
-        function updateMetrics() {
-            startProgressBar();
-            
-            fetch('/metrics')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+        function createMetricElement(label, value, unit, type) {
+            let percentage;
+            switch(type) {
+                case 'temperature':
+                    percentage = normalizeTemp(value);
+                    break;
+                case 'humidity':
+                    percentage = value;
+                    break;
+                case 'battery':
+                    percentage = value;
+                    break;
+            }
+
+            return `
+                <div class="metric ${type}">
+                    <div class="metric-header">
+                        <span>${label}</span>
+                        <span>${value}${unit}</span>
+                    </div>
+                    <div class="progress-bar" role="progressbar" 
+                         aria-valuenow="${value}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="${type === 'temperature' ? '40' : '100'}"
+                         aria-label="${label} progress">
+                        <div class="progress" style="width: ${percentage}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Fetch and process metrics
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/metrics');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const text = await response.text();
+                const metrics = text.split('\n')
+                    .filter(line => line.startsWith('govee_h5075_'))
+                    .map(line => {
+                        const [metric, value] = line.split(' ');
+                        const name = metric.match(/name="([^"]+)"/)[1];
+                        const type = metric.includes('temperature') ? 'temperature' :
+                                   metric.includes('humidity') ? 'humidity' : 'battery';
+                        return { name, type, value: parseFloat(value) };
+                    });
+
+                // Group by room
+                const rooms = {};
+                metrics.forEach(metric => {
+                    if (!rooms[metric.name]) {
+                        rooms[metric.name] = {};
                     }
-                    return response.text();
-                })
-                .then(data => {
-                    const metrics = {};
-                    const lines = data.split('\n');
-                    
-                    lines.forEach(line => {
-                        if (line.startsWith('#')) return;
-                        
-                        const match = line.match(/^([^{]+){name="([^"]+)"} (.+)$/);
-                        if (!match) return;
-                        
-                        const [, metricName, sensorName, value] = match;
-                        if (!metrics[sensorName]) {
-                            metrics[sensorName] = {};
-                        }
-                        metrics[sensorName][metricName.trim()] = parseFloat(value);
-                    });
-
-                    const container = document.getElementById('sensors-container');
-                    container.innerHTML = '<div class="last-updated" id="lastUpdated"></div>';
-
-                    Object.entries(metrics).forEach(([sensorName, values]) => {
-                        const card = document.createElement('div');
-                        card.className = 'sensor-card';
-                        
-                        const title = document.createElement('h2');
-                        title.className = 'sensor-title';
-                        title.textContent = sensorName;
-                        card.appendChild(title);
-
-                        const gaugesDiv = document.createElement('div');
-                        gaugesDiv.className = 'gauges-container';
-                        card.appendChild(gaugesDiv);
-
-                        if (values['govee_h5075_temperature'] !== undefined) {
-                            createProgressBar(gaugesDiv, values['govee_h5075_temperature'], 30, 'Temperature', '#ff4081', '°C');
-                        }
-                        if (values['govee_h5075_humidity'] !== undefined) {
-                            createProgressBar(gaugesDiv, values['govee_h5075_humidity'], 100, 'Humidity', '#2196f3', '%');
-                        }
-                        if (values['govee_h5075_battery'] !== undefined) {
-                            createProgressBar(gaugesDiv, values['govee_h5075_battery'], 100, 'Battery', '#4caf50', '%');
-                        }
-
-                        container.appendChild(card);
-                    });
-
-                    const lastUpdated = document.getElementById('lastUpdated');
-                    lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
-                })
-                .catch(error => {
-                    console.error('Error fetching metrics:', error);
-                    const container = document.getElementById('sensors-container');
-                    container.innerHTML = '<div role="alert" style="color: red; text-align: center;">Failed to load metrics. Please try again later.</div>';
+                    rooms[metric.name][metric.type] = metric.value;
                 });
+
+                // Update UI
+                const container = document.getElementById('sensors-container');
+                container.innerHTML = Object.entries(rooms).map(([room, data]) => `
+                    <div class="card">
+                        <h2>${room}</h2>
+                        ${data.temperature ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature') : ''}
+                        ${data.humidity ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity') : ''}
+                        ${data.battery ? createMetricElement('Battery', data.battery, '%', 'battery') : ''}
+                    </div>
+                `).join('');
+
+                // Reset and start progress bar
+                startProgressBar();
+
+                // Remove any error states
+                container.classList.remove('error');
+                const errorMsg = container.querySelector('.error-message');
+                if (errorMsg) errorMsg.remove();
+
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+                const container = document.getElementById('sensors-container');
+                container.innerHTML = `
+                    <div class="card error">
+                        <h2>Error Loading Data</h2>
+                        <p class="error-message">Unable to fetch data. Will retry in 60 seconds.</p>
+                    </div>
+                `;
+            }
         }
 
-        // Initialize progress bar and start updates
-        document.addEventListener('DOMContentLoaded', () => {
-            progressBar = document.getElementById('updateProgress');
+        // Progress bar animation
+        function startProgressBar() {
+            const progressBar = document.getElementById('refreshProgress');
+            progressBar.style.transition = 'none';
+            progressBar.style.transform = 'scaleX(1)';
             
-            // Clear any existing interval
-            if (updateTimer) {
-                clearInterval(updateTimer);
-            }
+            // Force reflow
+            progressBar.offsetHeight;
             
-            // Initial update
-            updateMetrics();
-            
-            // Set up periodic updates
-            updateTimer = setInterval(updateMetrics, REFRESH_INTERVAL);
-        });
+            progressBar.style.transition = 'transform 60s linear';
+            progressBar.style.transform = 'scaleX(0)';
+        }
+
+        // Initial fetch and periodic updates
+        fetchMetrics();
+        setInterval(fetchMetrics, 60000); // Update every 60 seconds
     </script>
 </body>
 </html>
