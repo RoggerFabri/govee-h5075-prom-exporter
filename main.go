@@ -137,12 +137,21 @@ func startBLEScanner() {
 	log.Println("Scanning for Govee H5075 devices...")
 
 	for {
-		// Start scanning
+		// Create a context with timeout for scan duration
+		ctx, cancel := context.WithTimeout(context.Background(), scanDuration)
+
+		// Start scanning with context
 		err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
-			scanCallback(device)
+			select {
+			case <-ctx.Done():
+				adapter.StopScan()
+				return
+			default:
+				scanCallback(device)
+			}
 		})
-		time.Sleep(scanDuration)
-		adapter.StopScan()
+
+		cancel()
 
 		if err != nil {
 			log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
@@ -151,7 +160,7 @@ func startBLEScanner() {
 		}
 
 		// Rest period between scans
-		time.Sleep(scanInterval - scanDuration)
+		time.Sleep(scanInterval)
 	}
 }
 
