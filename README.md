@@ -41,6 +41,7 @@ http://localhost:8080/metrics
 |-------------------|---------|-------------|
 | `PORT`            | `8080`  | The HTTP port to expose Prometheus metrics. |
 | `SCAN_INTERVAL`   | `15`    | How often (seconds) to scan for BLE devices. |
+| `SCAN_DURATION`   | `5`     | How long each active scan should run. |
 | `REFRESH_INTERVAL`| `30`    | How often (seconds) to check for stale metrics. |
 | `STALE_THRESHOLD` | `300`   | Time (seconds) before inactive sensors are removed. |
 
@@ -98,6 +99,7 @@ services:
     environment:
       - PORT=8080
       - SCAN_INTERVAL=15
+      - SCAN_DURATION=5
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
