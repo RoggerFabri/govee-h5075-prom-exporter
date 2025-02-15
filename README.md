@@ -41,7 +41,7 @@ http://localhost:8080/metrics
 |-------------------|---------|-------------|
 | `PORT`            | `8080`  | The HTTP port to expose Prometheus metrics. |
 | `SCAN_INTERVAL`   | `15`    | How often (seconds) to scan for BLE devices. |
-| `SCAN_DURATION`   | `5`     | How long each active scan should run. |
+| `SCAN_DURATION`   | `15`    | How long each active scan should run. |
 | `REFRESH_INTERVAL`| `30`    | How often (seconds) to check for stale metrics. |
 | `STALE_THRESHOLD` | `300`   | Time (seconds) before inactive sensors are removed. |
 
@@ -99,7 +99,7 @@ services:
     environment:
       - PORT=8080
       - SCAN_INTERVAL=15
-      - SCAN_DURATION=5
+      - SCAN_DURATION=15
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
@@ -153,6 +153,33 @@ govee_h5075_temperature
 govee_h5075_humidity
 govee_h5075_battery
 ```
+
+---
+
+## 🌐 Web Interface
+
+### **Dashboard Overview**
+The exporter includes a built-in web dashboard accessible at:
+```
+http://localhost:8080
+```
+
+Features:
+- **Real-time sensor cards** showing temperature, humidity, and battery levels
+- **Auto-refreshing data** every 60 seconds
+- **Visual progress bars** for easy metric interpretation
+- **Dark/Light theme** support
+- **Responsive design** for mobile and desktop
+- **Low battery warnings** when levels drop below 5%
+- **Automatic removal** of inactive sensors
+
+### **Theme Customization**
+The dashboard automatically remembers your theme preference (dark/light) between sessions. Toggle the theme using the sun/moon icon in the top-right corner.
+
+### **Error Handling**
+- Displays error messages if sensors become unreachable
+- Automatically retries connections
+- Shows stale data warnings for inactive sensors
 
 ---
 
