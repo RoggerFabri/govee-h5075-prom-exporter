@@ -158,7 +158,6 @@ func scanCallback(device bluetooth.ScanResult) {
 	mutex.Unlock()
 
 	if !exists {
-		log.Printf("Ignoring unknown device: %s", macAddr)
 		return
 	}
 
