@@ -119,7 +119,7 @@ func loadKnownGovees() {
 	log.Println("Loaded known Govee H5075 devices:", knownGovees)
 }
 
-func startBLEScanner() {
+func startBLEScanner(ctx context.Context) {
 	// Add retry logic for enabling the adapter
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
@@ -137,30 +137,40 @@ func startBLEScanner() {
 	log.Println("Scanning for Govee H5075 devices...")
 
 	for {
-		// Create a context with timeout for scan duration
-		ctx, cancel := context.WithTimeout(context.Background(), scanDuration)
+		select {
+		case <-ctx.Done():
+			adapter.StopScan()
+			return
+		default:
+			// Create a context with timeout for scan duration
+			scanCtx, cancel := context.WithTimeout(ctx, scanDuration)
 
-		// Start scanning with context
-		err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
+			// Start scanning with context
+			err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
+				select {
+				case <-scanCtx.Done():
+					adapter.StopScan()
+					return
+				default:
+					scanCallback(device)
+				}
+			})
+
+			cancel()
+
+			if err != nil {
+				log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			// Rest period between scans
 			select {
 			case <-ctx.Done():
-				adapter.StopScan()
 				return
-			default:
-				scanCallback(device)
+			case <-time.After(scanInterval):
 			}
-		})
-
-		cancel()
-
-		if err != nil {
-			log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
-			time.Sleep(5 * time.Second)
-			continue
 		}
-
-		// Rest period between scans
-		time.Sleep(scanInterval)
 	}
 }
 
@@ -275,13 +285,6 @@ func checkForStaleMetrics() {
 func main() {
 	loadKnownGovees()
 
-	go func() {
-		for {
-			time.Sleep(60 * time.Second)
-			loadKnownGovees()
-		}
-	}()
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
@@ -337,12 +340,45 @@ func main() {
 	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
 	scanDuration = time.Duration(scanDurationSeconds) * time.Second
 
-	go startBLEScanner()
+	// Create a context that will be canceled on shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	// Create a WaitGroup to track all goroutines
+	var wg sync.WaitGroup
+
+	// Start the known govees reload goroutine
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
-			time.Sleep(time.Duration(refreshInterval) * time.Second)
-			checkForStaleMetrics()
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(60 * time.Second):
+				loadKnownGovees()
+			}
+		}
+	}()
+
+	// Start the BLE scanner
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		startBLEScanner(ctx)
+	}()
+
+	// Start the stale metrics checker
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Duration(refreshInterval) * time.Second):
+				checkForStaleMetrics()
+			}
 		}
 	}()
 
@@ -375,7 +411,8 @@ func main() {
 			refreshInterval,
 			staleThresholdSeconds)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatalf("HTTP server error: %v", err)
+			log.Printf("HTTP server error: %v", err)
+			cancel() // Cancel context on server error
 		}
 	}()
 
@@ -383,10 +420,20 @@ func main() {
 	<-stop
 	log.Println("Shutting down...")
 
-	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	// Cancel context to stop all goroutines
+	cancel()
+
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer shutdownCancel()
+
+	// Shutdown HTTP server
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Error during server shutdown: %v", err)
 	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	log.Println("Shutdown complete")
 }
