@@ -330,12 +330,6 @@ func main() {
 		log.Fatalf("Invalid SCAN_DURATION: %s", scanDurationStr)
 	}
 
-	// Validate scan duration is less than scan interval
-	if scanDurationSeconds >= scanIntervalSeconds {
-		log.Fatalf("SCAN_DURATION (%d) must be less than SCAN_INTERVAL (%d)",
-			scanDurationSeconds, scanIntervalSeconds)
-	}
-
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
 	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
 	scanDuration = time.Duration(scanDurationSeconds) * time.Second
