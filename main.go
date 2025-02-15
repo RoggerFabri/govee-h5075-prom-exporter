@@ -57,6 +57,7 @@ var (
 	mutex          = &sync.Mutex{}
 	staleThreshold time.Duration
 	scanInterval   time.Duration
+	scanDuration   time.Duration
 )
 
 const (
@@ -64,6 +65,7 @@ const (
 	defaultRefreshInterval = "30"
 	defaultStaleThreshold  = "300"
 	defaultScanInterval    = "15"
+	defaultScanDuration    = "5"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
@@ -133,13 +135,13 @@ func startBLEScanner() {
 	}
 
 	log.Println("Scanning for Govee H5075 devices...")
-	// Add interval-based scanning
+
 	for {
 		// Start scanning
 		err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
 			scanCallback(device)
 		})
-		time.Sleep(scanInterval)
+		time.Sleep(scanDuration)
 		adapter.StopScan()
 
 		if err != nil {
@@ -147,6 +149,9 @@ func startBLEScanner() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
+
+		// Rest period between scans
+		time.Sleep(scanInterval - scanDuration)
 	}
 }
 
@@ -288,6 +293,11 @@ func main() {
 		scanIntervalStr = defaultScanInterval
 	}
 
+	scanDurationStr := os.Getenv("SCAN_DURATION")
+	if scanDurationStr == "" {
+		scanDurationStr = defaultScanDuration
+	}
+
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
 	if err != nil || refreshInterval <= 0 {
 		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
@@ -303,8 +313,20 @@ func main() {
 		log.Fatalf("Invalid SCAN_INTERVAL: %s", scanIntervalStr)
 	}
 
+	scanDurationSeconds, err := strconv.Atoi(scanDurationStr)
+	if err != nil || scanDurationSeconds <= 0 {
+		log.Fatalf("Invalid SCAN_DURATION: %s", scanDurationStr)
+	}
+
+	// Validate scan duration is less than scan interval
+	if scanDurationSeconds >= scanIntervalSeconds {
+		log.Fatalf("SCAN_DURATION (%d) must be less than SCAN_INTERVAL (%d)",
+			scanDurationSeconds, scanIntervalSeconds)
+	}
+
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
 	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
+	scanDuration = time.Duration(scanDurationSeconds) * time.Second
 
 	go startBLEScanner()
 
@@ -337,8 +359,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting metrics server on port %s with scan interval %d seconds, refresh interval %d seconds and stale threshold %d seconds\n",
+		log.Printf("Starting metrics server on port %s with scan duration %d seconds, scan interval %d seconds, refresh interval %d seconds and stale threshold %d seconds\n",
 			port,
+			scanDurationSeconds,
 			scanIntervalSeconds,
 			refreshInterval,
 			staleThresholdSeconds)
