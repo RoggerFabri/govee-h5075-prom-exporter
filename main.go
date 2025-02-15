@@ -135,18 +135,22 @@ func startBLEScanner() {
 	log.Println("Scanning for Govee H5075 devices...")
 	// Add interval-based scanning
 	for {
-		err := adapter.Scan(scanCallback)
+		// Start scanning
+		err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
+			scanCallback(device)
+		})
+		time.Sleep(scanInterval)
+		adapter.StopScan()
+
 		if err != nil {
 			log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		// Pause scanning for the configured interval
-		time.Sleep(scanInterval)
 	}
 }
 
-func scanCallback(adapter *bluetooth.Adapter, device bluetooth.ScanResult) {
+func scanCallback(device bluetooth.ScanResult) {
 	macAddr := strings.ToUpper(device.Address.String())
 
 	mutex.Lock()
