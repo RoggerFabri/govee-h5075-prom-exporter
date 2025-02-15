@@ -39,13 +39,15 @@ http://localhost:8080/metrics
 ### **🔹 Environment Variables**
 | Variable           | Default | Description |
 |-------------------|---------|-------------|
-| `PORT`           | `8080`  | The HTTP port to expose Prometheus metrics. |
-| `REFRESH_INTERVAL` | `30`   | How often (seconds) to check for stale metrics. |
+| `PORT`            | `8080`  | The HTTP port to expose Prometheus metrics. |
+| `SCAN_INTERVAL`   | `15`    | How often (seconds) to scan for BLE devices. |
+| `REFRESH_INTERVAL`| `30`    | How often (seconds) to check for stale metrics. |
 | `STALE_THRESHOLD` | `300`   | Time (seconds) before inactive sensors are removed. |
 
 Set custom values:
 ```sh
 export PORT=9090
+export SCAN_INTERVAL=30
 export REFRESH_INTERVAL=60
 export STALE_THRESHOLD=600
 docker-compose up -d
@@ -95,6 +97,7 @@ services:
       - "/dev/bus/usb:/dev/bus/usb"
     environment:
       - PORT=8080
+      - SCAN_INTERVAL=15
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
@@ -187,7 +190,7 @@ govee_h5075_battery
 ## 🛠️ Development
 
 ### **🔹 Building Manually**
-If you don’t want to use Docker:
+If you don't want to use Docker:
 ```sh
 go build -o govee-exporter main.go
 ./govee-exporter

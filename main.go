@@ -56,12 +56,14 @@ var (
 	lastUpdateTime = make(map[string]time.Time)
 	mutex          = &sync.Mutex{}
 	staleThreshold time.Duration
+	scanInterval   time.Duration
 )
 
 const (
 	defaultPort            = "8080"
 	defaultRefreshInterval = "30"
 	defaultStaleThreshold  = "300"
+	defaultScanInterval    = "15"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
@@ -131,7 +133,7 @@ func startBLEScanner() {
 	}
 
 	log.Println("Scanning for Govee H5075 devices...")
-	// Add continuous retry for scanner
+	// Add interval-based scanning
 	for {
 		err := adapter.Scan(scanCallback)
 		if err != nil {
@@ -139,6 +141,8 @@ func startBLEScanner() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		// Pause scanning for the configured interval
+		time.Sleep(scanInterval)
 	}
 }
 
@@ -276,6 +280,11 @@ func main() {
 		staleThresholdStr = defaultStaleThreshold
 	}
 
+	scanIntervalStr := os.Getenv("SCAN_INTERVAL")
+	if scanIntervalStr == "" {
+		scanIntervalStr = defaultScanInterval
+	}
+
 	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
 	if err != nil || refreshInterval <= 0 {
 		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
@@ -286,7 +295,13 @@ func main() {
 		log.Fatalf("Invalid STALE_THRESHOLD: %s", staleThresholdStr)
 	}
 
+	scanIntervalSeconds, err := strconv.Atoi(scanIntervalStr)
+	if err != nil || scanIntervalSeconds <= 0 {
+		log.Fatalf("Invalid SCAN_INTERVAL: %s", scanIntervalStr)
+	}
+
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
+	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
 
 	go startBLEScanner()
 
@@ -319,7 +334,11 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting metrics server on port %s with refresh interval %d seconds and stale threshold %d seconds\n", port, refreshInterval, staleThresholdSeconds)
+		log.Printf("Starting metrics server on port %s with scan interval %d seconds, refresh interval %d seconds and stale threshold %d seconds\n",
+			port,
+			scanIntervalSeconds,
+			refreshInterval,
+			staleThresholdSeconds)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
 		}

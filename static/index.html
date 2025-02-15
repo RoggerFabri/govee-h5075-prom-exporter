@@ -103,9 +103,28 @@
         .metric-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 5px;
             font-size: 0.9rem;
             opacity: 0.9;
+        }
+
+        .metric-value {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .warning-icon {
+            color: #ff9800;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .warning-icon svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
         }
 
         .progress-bar {
@@ -121,6 +140,7 @@
             height: 100%;
             border-radius: 5px;
             transition: width 0.3s ease;
+            min-width: 2px;
         }
 
         .temperature .progress {
@@ -240,11 +260,26 @@
                     break;
             }
 
+            // Ensure percentage is never less than 0
+            percentage = Math.max(0, percentage);
+
+            // Create warning icon for low battery
+            const warningIcon = type === 'battery' && value <= 5 ? `
+                <span class="warning-icon" title="Low Battery">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                </span>
+            ` : '';
+
             return `
                 <div class="metric ${type}">
                     <div class="metric-header">
                         <span>${label}</span>
-                        <span>${value}${unit}</span>
+                        <span class="metric-value">
+                            ${value}${unit}
+                            ${warningIcon}
+                        </span>
                     </div>
                     <div class="progress-bar" role="progressbar" 
                          aria-valuenow="${value}" 
