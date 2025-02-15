@@ -65,7 +65,7 @@ const (
 	defaultRefreshInterval = "30"
 	defaultStaleThreshold  = "300"
 	defaultScanInterval    = "15"
-	defaultScanDuration    = "5"
+	defaultScanDuration    = "15"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
