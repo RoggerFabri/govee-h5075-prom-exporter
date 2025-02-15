@@ -326,7 +326,7 @@
                         <h2>${room}</h2>
                         ${data.temperature ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature') : ''}
                         ${data.humidity ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity') : ''}
-                        ${data.battery ? createMetricElement('Battery', data.battery, '%', 'battery') : ''}
+                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', data.battery, '%', 'battery') : ''}
                     </div>
                 `).join('');
 
