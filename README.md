@@ -181,10 +181,6 @@ The dashboard automatically remembers your theme preference (dark/light) between
 - Automatically retries connections
 - Shows stale data warnings for inactive sensors
 
-Screenshot:
-![Dashboard Preview](dashboard.png)
-
-
 ---
 
 ## 🛠️ Troubleshooting
