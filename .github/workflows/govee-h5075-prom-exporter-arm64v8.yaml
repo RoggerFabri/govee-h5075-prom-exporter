@@ -12,6 +12,7 @@ on:
       - '.github/workflows/*'
       - '.known_govees'
       - 'docker-compose.yml'
+      - 'dashboard.png'
 
 jobs:
   build-and-push:
