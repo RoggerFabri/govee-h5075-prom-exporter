@@ -423,6 +423,7 @@ func main() {
 		}
 	}()
 
+	// Serve static files with correct MIME types
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -430,8 +431,9 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Serve static files
+	// Create FileServer with custom file type mappings
 	fs := http.FileServer(http.Dir("static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	mux.Handle("/", fs)
 
 	server := &http.Server{
