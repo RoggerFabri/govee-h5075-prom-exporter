@@ -124,7 +124,7 @@ func loadKnownGovees() {
 	knownGovees = newMap
 	mutex.Unlock()
 
-	log.Println("Loaded known Govee H5075 devices:", knownGovees)
+	log.Printf("Loaded known Govee H5075 devices:\n%+v", knownGovees)
 }
 
 func startBLEScanner(ctx context.Context) {
