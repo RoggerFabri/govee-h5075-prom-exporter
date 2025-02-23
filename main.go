@@ -417,7 +417,13 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting metrics server on port %s with scan duration %d seconds, scan interval %d seconds, refresh interval %d seconds, reload interval %d seconds and stale threshold %d seconds\n",
+		log.Printf(`Starting metrics server with configuration:
+    Port:             %s
+    Scan Duration:    %d seconds
+    Scan Interval:    %d seconds
+    Refresh Interval: %d seconds
+    Reload Interval:  %d seconds
+    Stale Threshold:  %d seconds`,
 			port,
 			scanDurationSeconds,
 			scanIntervalSeconds,
