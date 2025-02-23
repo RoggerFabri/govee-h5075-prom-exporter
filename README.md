@@ -222,6 +222,50 @@ The dashboard automatically remembers your theme preference (dark/light) between
 
 ## 🛠️ Development
 
+### **🔹 Mock Server for Development**
+For development purposes, a Python-based mock server is provided that simulates Govee H5075 devices without requiring actual hardware.
+
+#### **Prerequisites**
+- Python 3.x
+- Flask
+
+#### **Setup**
+1. Install Flask:
+```sh
+pip install flask
+```
+
+2. Start the mock server:
+```sh
+python mock_server.py
+```
+
+The mock server will start at:
+- UI: http://localhost:5000
+- Metrics: http://localhost:5000/metrics
+
+#### **Mock Server Features**
+- Simulates 5 devices (Living Room, Bedroom, Kitchen, Office, Basement)
+- Updates sensor data every second with realistic variations:
+  - Temperature: Random changes between -0.5°C and +0.5°C (bounded 10-35°C)
+  - Humidity: Random changes between -2% and +2% (bounded 30-70%)
+  - Battery: Slow decrease with occasional random recharge events
+- Serves the same UI as the production server
+- Provides Prometheus-formatted metrics
+
+#### **Development Workflow**
+1. Start the mock server for development:
+```sh
+python mock_server.py
+```
+
+2. Make changes to the UI (`static/index.html`)
+3. Refresh the browser to see changes
+4. Test metric collection using:
+```sh
+curl http://localhost:5000/metrics
+```
+
 ### **🔹 Building Manually**
 If you don't want to use Docker:
 ```sh

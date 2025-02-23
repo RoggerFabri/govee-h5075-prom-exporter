@@ -12,7 +12,7 @@ on:
       - '.github/workflows/*'
       - '.known_govees'
       - 'docker-compose.yml'
-      - 'dashboard.png'
+      - 'mock_server.py'
 
 jobs:
   build-and-push:
