@@ -339,14 +339,111 @@
             color: var(--warning-color);
         }
 
+        @keyframes value-change {
+            0% {
+                background-color: transparent;
+            }
+            50% {
+                background-color: var(--primary-color);
+                opacity: 0.2;
+            }
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .metric-value.changed {
+            animation: value-change 1s ease-out;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .card,
             .card:hover,
             .header button,
-            .refresh-button.spinning svg {
+            .refresh-button.spinning svg,
+            .metric-value.changed {
                 transition: none;
                 animation: none;
                 transform: none;
+            }
+        }
+
+        .last-update {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .unit-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .connectivity-indicator {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            margin-left: 6px;
+            position: relative;
+            flex-shrink: 0;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .connectivity-indicator::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            opacity: 0;
+        }
+
+        .connectivity-indicator.connected {
+            background-color: var(--success-color);
+        }
+
+        .connectivity-indicator.connected::after {
+            background-color: var(--success-color);
+        }
+
+        .connectivity-indicator.disconnected {
+            background-color: var(--warning-color);
+        }
+
+        .connectivity-indicator.disconnected::after {
+            background-color: var(--warning-color);
+        }
+
+        .connectivity-indicator.error {
+            background-color: #f44336;
+        }
+
+        .connectivity-indicator.error::after {
+            background-color: #f44336;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            70% {
+                transform: scale(2);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
             }
         }
     </style>
@@ -358,6 +455,10 @@
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
             </svg>
         </button>
+        <span class="last-update" role="status" aria-label="Last updated time">
+            <span class="timestamp"></span>
+            <div class="connectivity-indicator connected" role="status" aria-label="Connection status"></div>
+        </span>
         <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">
             <span class="icon sun">
                 <svg viewBox="0 0 24 24">
@@ -378,8 +479,62 @@
 
     <script>
         // Configuration
-        const REFRESH_INTERVAL = 60000;
+        const REFRESH_INTERVAL = 30000;
         const MAX_TEMPERATURE = 40;
+        const CONNECTION_TIMEOUT = 5000; // 5 seconds timeout for requests
+        
+        // Connection state tracking
+        let lastSuccessfulFetch = Date.now();
+        let connectionState = 'connected';
+
+        function updateConnectivityStatus(status) {
+            const indicator = document.querySelector('.connectivity-indicator');
+            const prevState = indicator.className.split(' ')[1];
+            
+            // Only update if state changed
+            if (prevState !== status) {
+                indicator.className = `connectivity-indicator ${status}`;
+                
+                // Update ARIA label for accessibility
+                const statusMessages = {
+                    'connected': 'Connected to sensor network',
+                    'disconnected': 'Connection lost to sensor network',
+                    'error': 'Error connecting to sensor network'
+                };
+                indicator.setAttribute('aria-label', statusMessages[status]);
+                
+                // Trigger screen reader announcement
+                const announcement = document.createElement('div');
+                announcement.setAttribute('role', 'alert');
+                announcement.style.position = 'absolute';
+                announcement.style.width = '1px';
+                announcement.style.height = '1px';
+                announcement.style.overflow = 'hidden';
+                announcement.textContent = statusMessages[status];
+                document.body.appendChild(announcement);
+                setTimeout(() => announcement.remove(), 3000);
+            }
+        }
+
+        // Check connection status periodically
+        setInterval(() => {
+            const timeSinceLastSuccess = Date.now() - lastSuccessfulFetch;
+            if (timeSinceLastSuccess > REFRESH_INTERVAL * 2) {
+                updateConnectivityStatus('disconnected');
+            }
+        }, REFRESH_INTERVAL);
+
+        // Format timestamp
+        function formatLastUpdate() {
+            const now = new Date();
+            return now.toLocaleTimeString();
+        }
+
+        // Update timestamp display
+        function updateTimestamp() {
+            const timestampEl = document.querySelector('.last-update .timestamp');
+            timestampEl.textContent = `Last updated: ${formatLastUpdate()}`;
+        }
 
         // Theme handling
         function toggleTheme() {
@@ -408,6 +563,8 @@
             const showWarning = type === 'battery' && value <= 5;
             const trend = formatTrend(value, previousValue);
             const trendAnnouncement = trend ? `, ${trend} from previous reading` : '';
+            const hasChanged = previousValue !== null && Math.abs(value - previousValue) >= 0.1;
+            const changeClass = hasChanged ? 'changed' : '';
             
             const warningIcon = showWarning ? `
                 <span class="warning-icon" role="alert" aria-label="Low Battery Warning">
@@ -421,7 +578,7 @@
                 <div class="metric ${type}" data-value="${value}">
                     <div class="metric-header">
                         <span>${label}</span>
-                        <span class="metric-value" aria-label="${label} is ${value}${unit}${trendAnnouncement}">
+                        <span class="metric-value ${changeClass}" aria-label="${label} is ${value}${unit}${trendAnnouncement}">
                             ${value}${unit}
                             ${warningIcon}
                         </span>
@@ -444,20 +601,32 @@
             progressBar.style.transition = 'none';
             progressBar.style.transform = 'scaleX(1)';
             progressBar.offsetHeight; // Force reflow
-            progressBar.style.transition = 'transform 60s linear';
+            progressBar.style.transition = 'transform 30s linear';
             progressBar.style.transform = 'scaleX(0)';
         }
 
         // Updated fetch and process metrics
         async function fetchMetrics() {
             try {
-                const container = document.getElementById('sensors-container');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONNECTION_TIMEOUT);
                 
-                const response = await fetch('/metrics');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const response = await fetch('/metrics', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 
                 const text = await response.text();
                 const rooms = {};
+
+                // Update connection status
+                lastSuccessfulFetch = Date.now();
+                updateConnectivityStatus('connected');
+
+                // Update timestamp
+                updateTimestamp();
 
                 // Parse metrics text into room data
                 text.split('\n').forEach(line => {
@@ -492,14 +661,14 @@
 
                 // Update or create cards for each room
                 Object.entries(rooms).forEach(([room, data]) => {
-                    let cardElement = container.querySelector(`[data-room="${room}"]`);
+                    let cardElement = document.getElementById('sensors-container').querySelector(`[data-room="${room}"]`);
                     const prev = previousValues[room] || {};
                     
                     if (!cardElement) {
                         cardElement = document.createElement('div');
                         cardElement.className = 'card';
                         cardElement.setAttribute('data-room', room);
-                        container.appendChild(cardElement);
+                        document.getElementById('sensors-container').appendChild(cardElement);
                     }
 
                     cardElement.innerHTML = `
@@ -511,7 +680,7 @@
                 });
 
                 // Remove cards for rooms that no longer exist
-                container.querySelectorAll('.card').forEach(card => {
+                document.getElementById('sensors-container').querySelectorAll('.card').forEach(card => {
                     const room = card.getAttribute('data-room');
                     if (!rooms[room]) {
                         card.remove();
@@ -519,15 +688,23 @@
                 });
 
                 startProgressBar();
-                container.classList.remove('error');
+                document.getElementById('sensors-container').classList.remove('error');
                 
             } catch (error) {
                 console.error('Error fetching metrics:', error);
+                
+                // Update connection status based on error type
+                if (error.name === 'AbortError') {
+                    updateConnectivityStatus('disconnected');
+                } else {
+                    updateConnectivityStatus('error');
+                }
+                
                 const container = document.getElementById('sensors-container');
                 container.innerHTML = `
                     <div class="card error" role="alert">
                         <h2>Error Loading Data</h2>
-                        <p class="error-message">Unable to fetch sensor data. Will retry in 60 seconds.</p>
+                        <p class="error-message">Unable to fetch sensor data. Will retry in ${REFRESH_INTERVAL/1000} seconds.</p>
                     </div>
                 `;
             }
@@ -539,6 +716,9 @@
             await fetchMetrics();
             refreshButton.classList.remove('spinning');
         }
+
+        // Initial timestamp
+        updateTimestamp();
 
         // Initial fetch and periodic updates
         fetchMetrics();
