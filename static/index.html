@@ -378,28 +378,8 @@
 
     <script>
         // Configuration
-        const USE_MOCK_DATA = false;
         const REFRESH_INTERVAL = 60000;
         const MAX_TEMPERATURE = 40;
-
-        // Mock data
-        const mockRooms = {
-            "Living Room": {
-                temperature: 23.5,
-                humidity: 45.2,
-                battery: 82
-            },
-            "Bedroom": {
-                temperature: 22.1,
-                humidity: 48.7,
-                battery: 15
-            },
-            "Kitchen": {
-                temperature: 24.8,
-                humidity: 52.3,
-                battery: 5
-            }
-        };
 
         // Theme handling
         function toggleTheme() {
@@ -473,49 +453,49 @@
             try {
                 const container = document.getElementById('sensors-container');
                 
-                let rooms;
-                if (USE_MOCK_DATA) {
-                    rooms = mockRooms;
-                } else {
-                    const response = await fetch('/metrics');
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    
-                    const text = await response.text();
-                    const metrics = text.split('\n')
-                        .filter(line => line.startsWith('govee_h5075_'))
-                        .map(line => {
-                            const [metric, value] = line.split(' ');
-                            const name = metric.match(/name="([^"]+)"/)[1];
-                            const type = metric.includes('temperature') ? 'temperature' :
-                                       metric.includes('humidity') ? 'humidity' : 'battery';
-                            return { name, type, value: parseFloat(value) };
-                        });
+                const response = await fetch('/metrics');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const text = await response.text();
+                const rooms = {};
 
-                    rooms = metrics.reduce((acc, metric) => {
-                        if (!acc[metric.name]) acc[metric.name] = {};
-                        acc[metric.name][metric.type] = metric.value;
-                        return acc;
-                    }, {});
-                }
+                // Parse metrics text into room data
+                text.split('\n').forEach(line => {
+                    if (!line || line.startsWith('#')) return; // Skip empty lines and comments
+                    
+                    const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([\d.]+)/);
+                    if (!match) return;
+                    
+                    const [, metric, name, value] = match;
+                    if (!rooms[name]) {
+                        rooms[name] = {};
+                    }
+                    rooms[name][metric] = parseFloat(value);
+                });
 
                 // Store previous values for comparison
                 const previousValues = {};
                 document.querySelectorAll('.card').forEach(card => {
-                    const room = card.querySelector('h2').textContent;
+                    const room = card.getAttribute('data-room');
+                    if (!room) return;
+                    
+                    const tempEl = card.querySelector('.temperature .metric-value');
+                    const humidEl = card.querySelector('.humidity .metric-value');
+                    const battEl = card.querySelector('.battery .metric-value');
+                    
                     previousValues[room] = {
-                        temperature: parseFloat(card.querySelector('.temperature .metric-value').textContent),
-                        humidity: parseFloat(card.querySelector('.humidity .metric-value').textContent),
-                        battery: parseFloat(card.querySelector('.battery .metric-value').textContent)
+                        temperature: tempEl ? parseFloat(tempEl.textContent) : null,
+                        humidity: humidEl ? parseFloat(humidEl.textContent) : null,
+                        battery: battEl ? parseFloat(battEl.textContent) : null
                     };
                 });
 
-                // Selective updates
+                // Update or create cards for each room
                 Object.entries(rooms).forEach(([room, data]) => {
                     let cardElement = container.querySelector(`[data-room="${room}"]`);
                     const prev = previousValues[room] || {};
                     
                     if (!cardElement) {
-                        // Create new card if it doesn't exist
                         cardElement = document.createElement('div');
                         cardElement.className = 'card';
                         cardElement.setAttribute('data-room', room);
@@ -524,9 +504,9 @@
 
                     cardElement.innerHTML = `
                         <h2>${room}</h2>
-                        ${data.temperature ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
-                        ${data.humidity ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
-                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', data.battery, '%', 'battery', prev.battery) : ''}
+                        ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
+                        ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
+                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
                     `;
                 });
 
