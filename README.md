@@ -44,13 +44,16 @@ http://localhost:8080/metrics
 | `SCAN_DURATION`   | `15`    | How long each active scan should run. |
 | `REFRESH_INTERVAL`| `30`    | How often (seconds) to check for stale metrics. |
 | `STALE_THRESHOLD` | `300`   | Time (seconds) before inactive sensors are removed. |
+| `RELOAD_INTERVAL` | `86400` | How often (seconds) to reload the known devices file. |
 
 Set custom values:
 ```sh
 export PORT=9090
 export SCAN_INTERVAL=30
+export SCAN_DURATION=30
 export REFRESH_INTERVAL=60
 export STALE_THRESHOLD=600
+export RELOAD_INTERVAL=86400
 docker-compose up -d
 ```
 
@@ -102,6 +105,7 @@ services:
       - SCAN_DURATION=15
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
+      - RELOAD_INTERVAL=86400
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
@@ -116,7 +120,7 @@ docker-compose up --build -d
 
 ### **View Logs**
 ```sh
-docker logs -f govee-ble-metrics
+docker logs -f govee-h5075-prom-exporter
 ```
 
 ### **Check If Metrics Are Available**
@@ -196,7 +200,7 @@ The dashboard automatically remembers your theme preference (dark/light) between
   ```
 - Check logs:
   ```sh
-  docker logs -f govee-ble-metrics
+  docker logs -f govee-h5075-prom-exporter
   ```
 
 ### **❓ No BLE Devices Detected**

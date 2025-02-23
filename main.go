@@ -51,13 +51,15 @@ type KnownGovee struct {
 }
 
 var (
-	adapter        = bluetooth.DefaultAdapter
-	knownGovees    = make(map[string]KnownGovee)
-	lastUpdateTime = make(map[string]time.Time)
-	mutex          = &sync.Mutex{}
-	staleThreshold time.Duration
-	scanInterval   time.Duration
-	scanDuration   time.Duration
+	adapter         = bluetooth.DefaultAdapter
+	knownGovees     = make(map[string]KnownGovee)
+	lastUpdateTime  = make(map[string]time.Time)
+	mutex           = &sync.Mutex{}
+	staleThreshold  time.Duration
+	scanInterval    time.Duration
+	scanDuration    time.Duration
+	reloadInterval  time.Duration
+	refreshInterval time.Duration
 )
 
 const (
@@ -66,6 +68,7 @@ const (
 	defaultStaleThreshold  = "300"
 	defaultScanInterval    = "15"
 	defaultScanDuration    = "15"
+	defaultReloadInterval  = "86400"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
@@ -81,6 +84,10 @@ func loadKnownGovees() {
 	knownFile := ".known_govees"
 	file, err := os.Open(knownFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("Warning: Known devices file %s not found. No devices will be monitored.", knownFile)
+			return
+		}
 		log.Fatalf("Error opening known devices file %s: %v", knownFile, err)
 	}
 	defer file.Close()
@@ -193,7 +200,7 @@ func scanCallback(device bluetooth.ScanResult) {
 
 	// Extract manufacturer data payload
 	for _, element := range manufacturerDataElements {
-		if element.CompanyID == 0xEC88 { // Govee Manufacturer ID
+		if element.CompanyID == goveeManufacturerID {
 			parseGoveeData(govee, element.Data)
 		}
 	}
@@ -310,8 +317,13 @@ func main() {
 		scanDurationStr = defaultScanDuration
 	}
 
-	refreshInterval, err := strconv.Atoi(refreshIntervalStr)
-	if err != nil || refreshInterval <= 0 {
+	reloadIntervalStr := os.Getenv("RELOAD_INTERVAL")
+	if reloadIntervalStr == "" {
+		reloadIntervalStr = defaultReloadInterval
+	}
+
+	refreshIntervalSeconds, err := strconv.Atoi(refreshIntervalStr)
+	if err != nil || refreshIntervalSeconds <= 0 {
 		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
 	}
 
@@ -330,9 +342,16 @@ func main() {
 		log.Fatalf("Invalid SCAN_DURATION: %s", scanDurationStr)
 	}
 
+	reloadIntervalSeconds, err := strconv.Atoi(reloadIntervalStr)
+	if err != nil || reloadIntervalSeconds <= 0 {
+		log.Fatalf("Invalid RELOAD_INTERVAL: %s", reloadIntervalStr)
+	}
+
 	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
 	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
 	scanDuration = time.Duration(scanDurationSeconds) * time.Second
+	reloadInterval = time.Duration(reloadIntervalSeconds) * time.Second
+	refreshInterval = time.Duration(refreshIntervalSeconds) * time.Second
 
 	// Create a context that will be canceled on shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -349,7 +368,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(60 * time.Second):
+			case <-time.After(reloadInterval):
 				loadKnownGovees()
 			}
 		}
@@ -370,7 +389,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(time.Duration(refreshInterval) * time.Second):
+			case <-time.After(refreshInterval):
 				checkForStaleMetrics()
 			}
 		}
@@ -398,11 +417,12 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting metrics server on port %s with scan duration %d seconds, scan interval %d seconds, refresh interval %d seconds and stale threshold %d seconds\n",
+		log.Printf("Starting metrics server on port %s with scan duration %d seconds, scan interval %d seconds, refresh interval %d seconds, reload interval %d seconds and stale threshold %d seconds\n",
 			port,
 			scanDurationSeconds,
 			scanIntervalSeconds,
-			refreshInterval,
+			refreshIntervalSeconds,
+			reloadIntervalSeconds,
 			staleThresholdSeconds)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
