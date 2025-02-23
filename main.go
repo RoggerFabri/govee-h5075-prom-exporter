@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -261,6 +262,17 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	temperature += govee.TempOffset
 	humidity += govee.HumidityOffset
 
+	// Format the log message with fixed-width fields
+	// Find the longest name in knownGovees for consistent padding
+	maxNameLength := 0
+	mutex.Lock()
+	for _, g := range knownGovees {
+		if len(g.Name) > maxNameLength {
+			maxNameLength = len(g.Name)
+		}
+	}
+	mutex.Unlock()
+
 	// Update Prometheus metrics
 	temperatureGauge.WithLabelValues(govee.Name).Set(temperature)
 	humidityGauge.WithLabelValues(govee.Name).Set(humidity)
@@ -271,7 +283,15 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	lastUpdateTime[govee.Name] = time.Now()
 	mutex.Unlock()
 
-	log.Printf("[%s] Temp: %.2f°C | Humidity: %.2f%% | Battery: %d%%", govee.Name, temperature, humidity, batteryLevel)
+		// Format the log message with padding
+	logMsg := fmt.Sprintf("[%-*s] Temp: %5.2f°C | Humidity: %5.2f%% | Battery: %3d%%",
+	maxNameLength,
+	govee.Name,
+	temperature,
+	humidity,
+	batteryLevel)
+
+	log.Println(logMsg)
 }
 
 func checkForStaleMetrics() {
