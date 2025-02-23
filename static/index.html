@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Govee H5075 Sensors Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
@@ -26,6 +26,14 @@
             --shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            overflow-x: hidden;
+            position: relative;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -39,6 +47,8 @@
             transition: background-color 0.3s, color 0.3s;
             padding: 20px;
             padding-top: 40px;
+            max-width: 100vw;
+            box-sizing: border-box;
         }
 
         .header {
@@ -46,9 +56,47 @@
             top: 20px;
             right: 20px;
             z-index: 1000;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 8px 16px 8px 8px;
+            border-radius: 25px;
+            box-shadow: var(--shadow);
         }
 
-        .theme-toggle {
+        .header button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header button:hover {
+            background-color: var(--border-color);
+            transform: translateY(-2px);
+        }
+
+        .header button:active {
+            transform: translateY(0px);
+        }
+
+        .header button svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .refresh-button {
             background: none;
             border: none;
             color: var(--text-color);
@@ -62,18 +110,72 @@
             transition: all 0.3s;
         }
 
-        .theme-toggle svg {
+        .refresh-button:hover {
+            background-color: var(--border-color);
+        }
+
+        .refresh-button svg {
             width: 20px;
             height: 20px;
             fill: currentColor;
         }
 
+        .refresh-button.spinning svg {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .metric-value {
+            position: relative;
+        }
+
+        /* Remove tooltip styles */
+        .metric-value {
+            display: inline-block;
+        }
+
+        .theme-toggle .icon {
+            position: absolute;
+            transition: transform 0.3s ease;
+            display: flex;
+        }
+
+        [data-theme="light"] .theme-toggle .moon {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        [data-theme="light"] .theme-toggle .sun {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        [data-theme="dark"] .theme-toggle .sun {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        [data-theme="dark"] .theme-toggle .moon {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
         .container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
+            width: 100%;
             max-width: 1400px;
             margin: 0 auto;
+            box-sizing: border-box;
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            min-height: 100px;
+            position: relative;
         }
 
         .card {
@@ -81,23 +183,31 @@
             border-radius: 15px;
             padding: 20px;
             box-shadow: var(--shadow);
-            transition: transform 0.3s, box-shadow 0.3s;
-            animation: fadeIn 0.3s ease-out;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            height: 100%;
+            transform: translateZ(0); /* Force GPU acceleration */
+            position: relative;
+            transition: opacity 0.3s ease;
         }
 
         .card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-5px) translateZ(0);
             box-shadow: var(--shadow), 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .card h2 {
             margin-bottom: 20px;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             text-transform: none;
         }
 
         .metric {
             margin-bottom: 15px;
+        }
+
+        .metric:last-child {
+            margin-bottom: 0;
         }
 
         .metric-header {
@@ -109,16 +219,11 @@
             opacity: 0.9;
         }
 
-        .metric-value {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
         .warning-icon {
-            color: #ff9800;
+            color: var(--warning-color);
             display: inline-flex;
             align-items: center;
+            margin-left: 4px;
         }
 
         .warning-icon svg {
@@ -158,10 +263,11 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
+            right: 0;
             height: 2px;
             background: var(--border-color);
             z-index: 1000;
+            overflow: hidden;
         }
 
         .refresh-progress-bar {
@@ -176,40 +282,83 @@
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(10px);
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
             }
         }
 
         @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                padding-bottom: 80px;
+                padding-top: 20px;
+            }
+
             .container {
                 grid-template-columns: 1fr;
-            }
-            
-            .header {
-                flex-direction: column;
                 gap: 15px;
-                text-align: center;
+                padding: 0;
+                margin: 0;
+            }
+
+            .card {
+                margin: 0;
+                border-radius: 10px;
+                width: calc(100% - 20px);
+                margin-left: 10px;
+                margin-right: 10px;
+            }
+
+            .header {
+                top: auto;
+                bottom: 20px;
+                right: 50%;
+                transform: translateX(50%);
+                padding: 8px;
             }
         }
 
         .card.error {
-            border: 1px solid #ff5252;
+            border: 2px solid var(--warning-color);
+            background-color: rgba(255, 82, 82, 0.1);
         }
 
         .error-message {
-            color: #ff5252;
+            color: var(--warning-color);
             font-size: 0.9rem;
             margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .metric[data-trend="increasing"] .metric-value {
+            color: var(--success-color);
+        }
+
+        .metric[data-trend="decreasing"] .metric-value {
+            color: var(--warning-color);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .card,
+            .card:hover,
+            .header button,
+            .refresh-button.spinning svg {
+                transition: none;
+                animation: none;
+                transform: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+    <div class="header" role="banner">
+        <button class="refresh-button" onclick="manualRefresh()" aria-label="Refresh sensor data">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+        </button>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">
             <span class="icon sun">
                 <svg viewBox="0 0 24 24">
                     <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
@@ -222,131 +371,91 @@
             </span>
         </button>
     </div>
-    <div class="refresh-progress">
+    <div class="refresh-progress" role="progressbar" aria-label="Data refresh progress">
         <div class="refresh-progress-bar" id="refreshProgress"></div>
     </div>
-    <div class="container" id="sensors-container"></div>
+    <main class="container" id="sensors-container" role="main" aria-live="polite"></main>
 
     <script>
+        // Configuration
+        const USE_MOCK_DATA = false;
+        const REFRESH_INTERVAL = 60000;
+        const MAX_TEMPERATURE = 40;
+
+        // Mock data
+        const mockRooms = {
+            "Living Room": {
+                temperature: 23.5,
+                humidity: 45.2,
+                battery: 82
+            },
+            "Bedroom": {
+                temperature: 22.1,
+                humidity: 48.7,
+                battery: 15
+            },
+            "Kitchen": {
+                temperature: 24.8,
+                humidity: 52.3,
+                battery: 5
+            }
+        };
+
         // Theme handling
         function toggleTheme() {
-            document.documentElement.setAttribute('data-theme', 
-                document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
-            );
-            localStorage.setItem('theme', document.documentElement.getAttribute('data-theme'));
+            const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
         }
 
         // Set initial theme
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
 
-        // Utility functions
+        // Updated utility functions
         function normalizeTemp(temp) {
-            return ((temp - 0) / (40 - 0)) * 100;
+            return Math.max(0, ((temp - 0) / MAX_TEMPERATURE) * 100);
         }
 
-        function createMetricElement(label, value, unit, type) {
-            let percentage;
-            switch(type) {
-                case 'temperature':
-                    percentage = normalizeTemp(value);
-                    break;
-                case 'humidity':
-                    percentage = value;
-                    break;
-                case 'battery':
-                    percentage = value;
-                    break;
-            }
+        function formatTrend(current, previous) {
+            if (!previous) return '';
+            const diff = current - previous;
+            if (Math.abs(diff) < 0.1) return 'stable';
+            return diff > 0 ? 'increasing' : 'decreasing';
+        }
 
-            // Ensure percentage is never less than 0
-            percentage = Math.max(0, percentage);
-
-            // Create warning icon for low battery
-            const warningIcon = type === 'battery' && value <= 5 ? `
-                <span class="warning-icon" title="Low Battery">
-                    <svg viewBox="0 0 24 24">
+        function createMetricElement(label, value, unit, type, previousValue = null) {
+            const percentage = type === 'temperature' ? normalizeTemp(value) : Math.max(0, value);
+            const showWarning = type === 'battery' && value <= 5;
+            const trend = formatTrend(value, previousValue);
+            const trendAnnouncement = trend ? `, ${trend} from previous reading` : '';
+            
+            const warningIcon = showWarning ? `
+                <span class="warning-icon" role="alert" aria-label="Low Battery Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
                     </svg>
                 </span>
             ` : '';
 
             return `
-                <div class="metric ${type}">
+                <div class="metric ${type}" data-value="${value}">
                     <div class="metric-header">
                         <span>${label}</span>
-                        <span class="metric-value">
+                        <span class="metric-value" aria-label="${label} is ${value}${unit}${trendAnnouncement}">
                             ${value}${unit}
                             ${warningIcon}
                         </span>
                     </div>
-                    <div class="progress-bar" role="progressbar" 
+                    <div class="progress-bar" 
+                         role="progressbar" 
                          aria-valuenow="${value}" 
                          aria-valuemin="0" 
-                         aria-valuemax="${type === 'temperature' ? '40' : '100'}"
-                         aria-label="${label} progress">
+                         aria-valuemax="${type === 'temperature' ? MAX_TEMPERATURE : '100'}"
+                         aria-label="${label} level">
                         <div class="progress" style="width: ${percentage}%"></div>
                     </div>
                 </div>
             `;
-        }
-
-        // Fetch and process metrics
-        async function fetchMetrics() {
-            try {
-                const response = await fetch('/metrics');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const text = await response.text();
-                const metrics = text.split('\n')
-                    .filter(line => line.startsWith('govee_h5075_'))
-                    .map(line => {
-                        const [metric, value] = line.split(' ');
-                        const name = metric.match(/name="([^"]+)"/)[1];
-                        const type = metric.includes('temperature') ? 'temperature' :
-                                   metric.includes('humidity') ? 'humidity' : 'battery';
-                        return { name, type, value: parseFloat(value) };
-                    });
-
-                // Group by room
-                const rooms = {};
-                metrics.forEach(metric => {
-                    if (!rooms[metric.name]) {
-                        rooms[metric.name] = {};
-                    }
-                    rooms[metric.name][metric.type] = metric.value;
-                });
-
-                // Update UI
-                const container = document.getElementById('sensors-container');
-                container.innerHTML = Object.entries(rooms).map(([room, data]) => `
-                    <div class="card">
-                        <h2>${room}</h2>
-                        ${data.temperature ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature') : ''}
-                        ${data.humidity ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity') : ''}
-                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', data.battery, '%', 'battery') : ''}
-                    </div>
-                `).join('');
-
-                // Reset and start progress bar
-                startProgressBar();
-
-                // Remove any error states
-                container.classList.remove('error');
-                const errorMsg = container.querySelector('.error-message');
-                if (errorMsg) errorMsg.remove();
-
-            } catch (error) {
-                console.error('Error fetching metrics:', error);
-                const container = document.getElementById('sensors-container');
-                container.innerHTML = `
-                    <div class="card error">
-                        <h2>Error Loading Data</h2>
-                        <p class="error-message">Unable to fetch data. Will retry in 60 seconds.</p>
-                    </div>
-                `;
-            }
         }
 
         // Progress bar animation
@@ -354,17 +463,106 @@
             const progressBar = document.getElementById('refreshProgress');
             progressBar.style.transition = 'none';
             progressBar.style.transform = 'scaleX(1)';
-            
-            // Force reflow
-            progressBar.offsetHeight;
-            
+            progressBar.offsetHeight; // Force reflow
             progressBar.style.transition = 'transform 60s linear';
             progressBar.style.transform = 'scaleX(0)';
         }
 
+        // Updated fetch and process metrics
+        async function fetchMetrics() {
+            try {
+                const container = document.getElementById('sensors-container');
+                
+                let rooms;
+                if (USE_MOCK_DATA) {
+                    rooms = mockRooms;
+                } else {
+                    const response = await fetch('/metrics');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    const text = await response.text();
+                    const metrics = text.split('\n')
+                        .filter(line => line.startsWith('govee_h5075_'))
+                        .map(line => {
+                            const [metric, value] = line.split(' ');
+                            const name = metric.match(/name="([^"]+)"/)[1];
+                            const type = metric.includes('temperature') ? 'temperature' :
+                                       metric.includes('humidity') ? 'humidity' : 'battery';
+                            return { name, type, value: parseFloat(value) };
+                        });
+
+                    rooms = metrics.reduce((acc, metric) => {
+                        if (!acc[metric.name]) acc[metric.name] = {};
+                        acc[metric.name][metric.type] = metric.value;
+                        return acc;
+                    }, {});
+                }
+
+                // Store previous values for comparison
+                const previousValues = {};
+                document.querySelectorAll('.card').forEach(card => {
+                    const room = card.querySelector('h2').textContent;
+                    previousValues[room] = {
+                        temperature: parseFloat(card.querySelector('.temperature .metric-value').textContent),
+                        humidity: parseFloat(card.querySelector('.humidity .metric-value').textContent),
+                        battery: parseFloat(card.querySelector('.battery .metric-value').textContent)
+                    };
+                });
+
+                // Selective updates
+                Object.entries(rooms).forEach(([room, data]) => {
+                    let cardElement = container.querySelector(`[data-room="${room}"]`);
+                    const prev = previousValues[room] || {};
+                    
+                    if (!cardElement) {
+                        // Create new card if it doesn't exist
+                        cardElement = document.createElement('div');
+                        cardElement.className = 'card';
+                        cardElement.setAttribute('data-room', room);
+                        container.appendChild(cardElement);
+                    }
+
+                    cardElement.innerHTML = `
+                        <h2>${room}</h2>
+                        ${data.temperature ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
+                        ${data.humidity ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
+                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', data.battery, '%', 'battery', prev.battery) : ''}
+                    `;
+                });
+
+                // Remove cards for rooms that no longer exist
+                container.querySelectorAll('.card').forEach(card => {
+                    const room = card.getAttribute('data-room');
+                    if (!rooms[room]) {
+                        card.remove();
+                    }
+                });
+
+                startProgressBar();
+                container.classList.remove('error');
+                
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+                const container = document.getElementById('sensors-container');
+                container.innerHTML = `
+                    <div class="card error" role="alert">
+                        <h2>Error Loading Data</h2>
+                        <p class="error-message">Unable to fetch sensor data. Will retry in 60 seconds.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function manualRefresh() {
+            const refreshButton = document.querySelector('.refresh-button');
+            refreshButton.classList.add('spinning');
+            await fetchMetrics();
+            refreshButton.classList.remove('spinning');
+        }
+
         // Initial fetch and periodic updates
         fetchMetrics();
-        setInterval(fetchMetrics, 60000); // Update every 60 seconds
+        setInterval(fetchMetrics, REFRESH_INTERVAL);
     </script>
 </body>
 </html>
