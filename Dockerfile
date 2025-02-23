@@ -14,8 +14,8 @@ RUN go mod download
 # Copy the application source code and static files
 COPY . .
 
-# Build the Go application
-RUN go build -ldflags="-w -s" -o govee_exporter main.go
+# Build the Go application with additional security flags
+RUN go build -ldflags="-w -s -extldflags=-static" -o govee_exporter main.go
 
 # Stage 2: Create a minimal runtime container
 FROM alpine:3.21
@@ -27,9 +27,13 @@ LABEL maintainer="Rogger Fabri" \
 
 # Security updates and create non-root user
 RUN apk update && \
+    apk upgrade && \
     apk add --no-cache ca-certificates tzdata && \
     addgroup -S appgroup && \
-    adduser -S appuser -G appgroup
+    adduser -S appuser -G appgroup && \
+    # Create directory with correct permissions
+    mkdir -p /app && \
+    chown -R appuser:appgroup /app
 
 # Set the working directory in the runtime container
 WORKDIR /app
@@ -39,13 +43,14 @@ COPY --from=builder /app/govee_exporter .
 COPY --from=builder /app/static ./static
 RUN chown -R appuser:appgroup /app
 
+# Switch to non-root user
 USER appuser
 
 # Expose the default HTTP port
 EXPOSE 8080
 
 # Add health check using wget
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget --spider -q http://localhost:8080/health || exit 1
 
 # Command to run the application
