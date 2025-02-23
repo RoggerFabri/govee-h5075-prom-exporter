@@ -601,7 +601,7 @@
             progressBar.style.transition = 'none';
             progressBar.style.transform = 'scaleX(1)';
             progressBar.offsetHeight; // Force reflow
-            progressBar.style.transition = 'transform 30s linear';
+            progressBar.style.transition = `transform ${REFRESH_INTERVAL/1000}s linear`;
             progressBar.style.transform = 'scaleX(0)';
         }
 
