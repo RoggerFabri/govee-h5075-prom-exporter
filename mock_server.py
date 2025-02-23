@@ -1,9 +1,10 @@
-from flask import Flask, Response
+from flask import Flask, Response, send_from_directory
 import random
 import time
 import threading
 
-app = Flask(__name__)
+# Initialize Flask app with explicit static folder configuration
+app = Flask(__name__, static_url_path='', static_folder='static')
 
 # Mock devices with initial values
 devices = {
@@ -34,7 +35,7 @@ def update_mock_data():
                 else:
                     device["battery"] = max(0, device["battery"] - random.uniform(0, 0.1))
         
-        time.sleep(1)  # Update every 5 seconds
+        time.sleep(1)  # Update every second
 
 @app.route('/metrics')
 def metrics():
@@ -50,17 +51,25 @@ def metrics():
     
     return Response('\n'.join(lines), mimetype='text/plain')
 
-@app.route('/')
-def index():
-    """Serve the main UI"""
-    with open('static/index.html', 'r', encoding='utf-8') as f:
-        return Response(f.read(), mimetype='text/html; charset=utf-8')
+@app.after_request
+def add_header(response):
+    """Add headers for browser compatibility and caching"""
+    response.headers['X-UA-Compatible'] = 'IE=Edge,chrome=1'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
-@app.route('/favicon.svg')
-def favicon():
-    """Serve the favicon"""
-    with open('static/favicon.svg', 'r', encoding='utf-8') as f:
-        return Response(f.read(), mimetype='image/svg+xml; charset=utf-8')
+# Explicit routes for static files
+@app.route('/')
+def root():
+    """Serve the main UI"""
+    return app.send_static_file('index.html')
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serve static files with proper MIME types"""
+    return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
     # Start the background thread for updating mock data

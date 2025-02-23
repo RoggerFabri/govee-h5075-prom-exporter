@@ -40,7 +40,7 @@ WORKDIR /app
 
 # Copy the built application and static files from the builder stage
 COPY --from=builder /app/govee_exporter .
-COPY --from=builder /app/static ./static
+COPY --from=builder /app/static/. ./static/
 RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
