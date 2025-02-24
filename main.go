@@ -127,7 +127,7 @@ func loadKnownGovees() {
 	// Format and log the known devices
 	log.Println("Loaded known Govee H5075 devices:")
 	for mac, device := range knownGovees {
-		log.Printf("  %-32s -> Name: %-15s TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
+		log.Printf("  %-17s -> Name: %-15s TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
 			mac,
 			device.Name,
 			device.TempOffset,
@@ -280,6 +280,15 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 		}
 	}
 	mutex.Unlock()
+	// Format the log message with padding
+	logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%% | Battery: %3d%%",
+		maxNameLength,
+		govee.Name,
+		temperature,
+		humidity,
+		batteryLevel)
+
+	log.Println(logMsg)
 
 	// Update Prometheus metrics
 	temperatureGauge.WithLabelValues(govee.Name).Set(temperature)
@@ -290,16 +299,6 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	mutex.Lock()
 	lastUpdateTime[govee.Name] = time.Now()
 	mutex.Unlock()
-
-	// Format the log message with padding
-	logMsg := fmt.Sprintf("[%-*s] Temp: %5.2f°C | Humidity: %5.2f%% | Battery: %3d%%",
-		maxNameLength,
-		govee.Name,
-		temperature,
-		humidity,
-		batteryLevel)
-
-	log.Println(logMsg)
 }
 
 func checkForStaleMetrics() {
