@@ -73,10 +73,10 @@ type Config struct {
 const (
 	defaultPort            = "8080"
 	defaultRefreshInterval = "30s"
-	defaultStaleThreshold  = "300s"
+	defaultStaleThreshold  = "5m"
 	defaultScanInterval    = "15s"
 	defaultScanDuration    = "15s"
-	defaultReloadInterval  = "86400s"
+	defaultReloadInterval  = "24h"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
