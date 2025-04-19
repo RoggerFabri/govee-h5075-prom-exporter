@@ -40,20 +40,20 @@ http://localhost:8080/metrics
 | Variable           | Default | Description |
 |-------------------|---------|-------------|
 | `PORT`            | `8080`  | The HTTP port to expose Prometheus metrics. |
-| `SCAN_INTERVAL`   | `15`    | How often (seconds) to scan for BLE devices. |
-| `SCAN_DURATION`   | `15`    | How long each active scan should run. |
-| `REFRESH_INTERVAL`| `30`    | How often (seconds) to check for stale metrics. |
-| `STALE_THRESHOLD` | `300`   | Time (seconds) before inactive sensors are removed. |
-| `RELOAD_INTERVAL` | `86400` | How often (seconds) to reload the known devices file. |
+| `SCAN_INTERVAL`   | `15s`   | How often to scan for BLE devices (duration format, e.g., 15s, 1m, 1h). |
+| `SCAN_DURATION`   | `15s`   | How long each active scan should run (duration format, e.g., 15s, 1m, 1h). |
+| `REFRESH_INTERVAL`| `30s`   | How often to check for stale metrics (duration format, e.g., 30s, 1m, 1h). |
+| `STALE_THRESHOLD` | `5m`    | Time before inactive sensors are removed (duration format, e.g., 5m, 1h). |
+| `RELOAD_INTERVAL` | `24h`   | How often to reload the known devices file (duration format, e.g., 1h, 24h). |
 
 Set custom values:
 ```sh
 export PORT=9090
-export SCAN_INTERVAL=30
-export SCAN_DURATION=30
-export REFRESH_INTERVAL=60
-export STALE_THRESHOLD=600
-export RELOAD_INTERVAL=86400
+export SCAN_INTERVAL=30s
+export SCAN_DURATION=1m
+export REFRESH_INTERVAL=1m
+export STALE_THRESHOLD=10m
+export RELOAD_INTERVAL=12h
 docker-compose up -d
 ```
 
@@ -101,11 +101,11 @@ services:
       - "/dev/bus/usb:/dev/bus/usb"
     environment:
       - PORT=8080
-      - SCAN_INTERVAL=15
-      - SCAN_DURATION=15
-      - REFRESH_INTERVAL=30
-      - STALE_THRESHOLD=300
-      - RELOAD_INTERVAL=86400
+      - SCAN_INTERVAL=15s
+      - SCAN_DURATION=15s
+      - REFRESH_INTERVAL=30s
+      - STALE_THRESHOLD=5m
+      - RELOAD_INTERVAL=24h
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
