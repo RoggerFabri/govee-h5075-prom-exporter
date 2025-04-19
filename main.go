@@ -311,7 +311,20 @@ func checkForStaleMetrics() {
 			temperatureGauge.DeleteLabelValues(device)
 			humidityGauge.DeleteLabelValues(device)
 			batteryGauge.DeleteLabelValues(device)
-			log.Printf("Metrics for %s reset due to inactivity (last seen at %s)", device, lastSeen)
+
+			var macAddr string
+			for mac, govee := range knownGovees {
+				if govee.Name == device {
+					macAddr = mac
+					break
+				}
+			}
+
+			if macAddr != "" {
+				log.Printf("Metrics for device '%s' (MAC: %s) reset due to inactivity (last seen at %s)", device, macAddr, lastSeen)
+			} else {
+				log.Printf("Metrics for device '%s' reset due to inactivity (last seen at %s)", device, lastSeen)
+			}
 		}
 	}
 }
