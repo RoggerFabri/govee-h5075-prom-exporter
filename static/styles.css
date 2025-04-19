@@ -1,32 +1,32 @@
 :root {
-    --bg-color: #f5f5f5;
+    --bg-color: #f8f9fc;
     --card-bg: #ffffff;
-    --text-color: #333333;
-    --border-color: #e0e0e0;
-    --primary-color: #2196f3;
+    --text-color: #1a1f36;
+    --border-color: rgba(228, 231, 236, 0.6);
+    --primary-color: #e94caf;
+    --secondary-color: #8b5cf6;
     --success-color: #4caf50;
     --warning-color: #ff9800;
-    --shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     --card-bg-rgb: 255, 255, 255;
-    --border-color-rgb: 224, 224, 224;
-    --header-bg: rgba(255, 255, 255, 0.95);
-    --header-border: rgba(0, 0, 0, 0.1);
-    --header-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
-                    0 2px 10px rgba(0, 0, 0, 0.1);
+    --border-color-rgb: 228, 231, 236;
+    --header-bg: rgba(255, 255, 255, 0.85);
+    --header-border: rgba(255, 255, 255, 0.1);
+    --header-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    --gradient-primary: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
 }
 
 [data-theme="dark"] {
-    --bg-color: #1a1a1a;
-    --card-bg: #2d2d2d;
+    --bg-color: #0a0b0f;
+    --card-bg: #13141a;
     --text-color: #ffffff;
-    --border-color: #404040;
-    --shadow: 0 2px 4px rgba(0,0,0,0.3);
-    --card-bg-rgb: 45, 45, 45;
-    --border-color-rgb: 64, 64, 64;
-    --header-bg: rgba(45, 45, 45, 0.95);
-    --header-border: rgba(255, 255, 255, 0.1);
-    --header-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
-                    0 2px 10px rgba(0, 0, 0, 0.2);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    --card-bg-rgb: 19, 20, 26;
+    --border-color-rgb: 255, 255, 255;
+    --header-bg: rgba(19, 20, 26, 0.85);
+    --header-border: rgba(255, 255, 255, 0.05);
+    --header-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 html, body {
@@ -52,6 +52,9 @@ body {
     padding-top: 40px;
     max-width: 100vw;
     box-sizing: border-box;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: -0.01em;
 }
 
 .header {
@@ -63,8 +66,8 @@ body {
     gap: 15px;
     align-items: center;
     background: var(--header-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     padding: 8px 16px 8px 8px;
     border-radius: 25px;
     box-shadow: var(--header-shadow);
@@ -137,11 +140,10 @@ body {
 }
 
 .metric-value {
-    position: relative;
-}
-
-.metric-value {
     display: inline-block;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text-color);
 }
 
 .theme-toggle .icon {
@@ -186,26 +188,30 @@ body {
 
 .card {
     background-color: var(--card-bg);
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 24px;
+    padding: 24px;
     box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.3s ease;
     width: 100%;
     height: 100%;
     transform: translateZ(0);
     position: relative;
-    transition: opacity 0.3s ease;
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .card:hover {
     transform: translateY(-5px) translateZ(0);
-    box-shadow: var(--shadow), 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
 .card h2 {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     font-size: 1.3rem;
-    text-transform: none;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-color);
 }
 
 .metric {
@@ -220,9 +226,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     font-size: 0.9rem;
-    opacity: 0.9;
+    font-weight: 500;
+    opacity: 0.85;
 }
 
 .warning-icon {
@@ -240,29 +247,30 @@ body {
 
 .progress-bar {
     width: 100%;
-    height: 8px;
-    background-color: var(--border-color);
-    border-radius: 4px;
+    height: 10px;
+    background-color: rgba(var(--border-color-rgb), 0.2);
+    border-radius: 8px;
     overflow: hidden;
-    opacity: 0.85;
+    opacity: 0.95;
 }
 
 .progress {
     height: 100%;
-    border-radius: 5px;
-    transition: width 0.3s ease;
+    border-radius: 8px;
+    transition: width 0.4s ease;
+    background: var(--gradient-primary);
 }
 
 .temperature .progress {
-    background-color: var(--primary-color);
+    background: var(--gradient-primary);
 }
 
 .humidity .progress {
-    background-color: var(--success-color);
+    background: var(--gradient-primary);
 }
 
 .battery .progress {
-    background-color: var(--warning-color);
+    background: var(--gradient-primary);
 }
 
 .refresh-progress {
@@ -378,11 +386,12 @@ body {
 
 .last-update {
     font-size: 0.8rem;
-    opacity: 0.8;
+    opacity: 0.7;
+    font-weight: 500;
     white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .unit-toggle:hover {
