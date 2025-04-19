@@ -236,3 +236,86 @@ func getGaugeValue(g prometheus.Gauge) float64 {
 	g.Write(&m)
 	return m.GetGauge().GetValue()
 }
+
+func TestConfigInitialization(t *testing.T) {
+	// Test case 1: Default values
+	config, err := initConfig()
+	if err != nil {
+		t.Fatalf("Failed to initialize config: %v", err)
+	}
+
+	// Parse expected durations
+	expectedRefresh, _ := time.ParseDuration(defaultRefreshInterval)
+	expectedStale, _ := time.ParseDuration(defaultStaleThreshold)
+	expectedScan, _ := time.ParseDuration(defaultScanInterval)
+	expectedDuration, _ := time.ParseDuration(defaultScanDuration)
+	expectedReload, _ := time.ParseDuration(defaultReloadInterval)
+
+	// Verify default values
+	if config.Port != defaultPort {
+		t.Errorf("Port = %v, want %v", config.Port, defaultPort)
+	}
+	if config.RefreshInterval != expectedRefresh {
+		t.Errorf("RefreshInterval = %v, want %v", config.RefreshInterval, expectedRefresh)
+	}
+	if config.StaleThreshold != expectedStale {
+		t.Errorf("StaleThreshold = %v, want %v", config.StaleThreshold, expectedStale)
+	}
+	if config.ScanInterval != expectedScan {
+		t.Errorf("ScanInterval = %v, want %v", config.ScanInterval, expectedScan)
+	}
+	if config.ScanDuration != expectedDuration {
+		t.Errorf("ScanDuration = %v, want %v", config.ScanDuration, expectedDuration)
+	}
+	if config.ReloadInterval != expectedReload {
+		t.Errorf("ReloadInterval = %v, want %v", config.ReloadInterval, expectedReload)
+	}
+
+	// Test case 2: Environment variables
+	os.Setenv("PORT", "9090")
+	os.Setenv("REFRESH_INTERVAL", "1m")
+	os.Setenv("STALE_THRESHOLD", "10m")
+	os.Setenv("SCAN_INTERVAL", "30s")
+	os.Setenv("SCAN_DURATION", "1m")
+	os.Setenv("RELOAD_INTERVAL", "12h")
+	defer func() {
+		os.Unsetenv("PORT")
+		os.Unsetenv("REFRESH_INTERVAL")
+		os.Unsetenv("STALE_THRESHOLD")
+		os.Unsetenv("SCAN_INTERVAL")
+		os.Unsetenv("SCAN_DURATION")
+		os.Unsetenv("RELOAD_INTERVAL")
+	}()
+
+	config, err = initConfig()
+	if err != nil {
+		t.Fatalf("Failed to initialize config with env vars: %v", err)
+	}
+
+	// Parse expected durations for env vars
+	expectedRefresh, _ = time.ParseDuration("1m")
+	expectedStale, _ = time.ParseDuration("10m")
+	expectedScan, _ = time.ParseDuration("30s")
+	expectedDuration, _ = time.ParseDuration("1m")
+	expectedReload, _ = time.ParseDuration("12h")
+
+	// Verify environment variable values
+	if config.Port != "9090" {
+		t.Errorf("Port = %v, want 9090", config.Port)
+	}
+	if config.RefreshInterval != expectedRefresh {
+		t.Errorf("RefreshInterval = %v, want %v", config.RefreshInterval, expectedRefresh)
+	}
+	if config.StaleThreshold != expectedStale {
+		t.Errorf("StaleThreshold = %v, want %v", config.StaleThreshold, expectedStale)
+	}
+	if config.ScanInterval != expectedScan {
+		t.Errorf("ScanInterval = %v, want %v", config.ScanInterval, expectedScan)
+	}
+	if config.ScanDuration != expectedDuration {
+		t.Errorf("ScanDuration = %v, want %v", config.ScanDuration, expectedDuration)
+	}
+	if config.ReloadInterval != expectedReload {
+		t.Errorf("ReloadInterval = %v, want %v", config.ReloadInterval, expectedReload)
+	}
+}
