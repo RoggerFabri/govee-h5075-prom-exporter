@@ -206,11 +206,13 @@ func TestCheckForStaleMetrics(t *testing.T) {
 	batteryGauge.WithLabelValues("Fresh").Set(100)
 	batteryGauge.WithLabelValues("Stale").Set(90)
 
-	// Set stale threshold to 5 minutes
-	staleThreshold = 5 * time.Minute
+	// Create test config
+	config := &Config{
+		StaleThreshold: 5 * time.Minute,
+	}
 
 	// Run the check
-	checkForStaleMetrics()
+	checkForStaleMetrics(config)
 
 	// Verify fresh metrics still exist
 	if metric, err := temperatureGauge.GetMetricWithLabelValues("Fresh"); err != nil {

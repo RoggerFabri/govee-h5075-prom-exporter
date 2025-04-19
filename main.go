@@ -16,6 +16,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 	"tinygo.org/x/bluetooth"
 )
 
@@ -52,24 +53,30 @@ type KnownGovee struct {
 }
 
 var (
-	adapter         = bluetooth.DefaultAdapter
-	knownGovees     = make(map[string]KnownGovee)
-	lastUpdateTime  = make(map[string]time.Time)
-	mutex           = &sync.Mutex{}
-	staleThreshold  time.Duration
-	scanInterval    time.Duration
-	scanDuration    time.Duration
-	reloadInterval  time.Duration
-	refreshInterval time.Duration
+	adapter        = bluetooth.DefaultAdapter
+	knownGovees    = make(map[string]KnownGovee)
+	lastUpdateTime = make(map[string]time.Time)
+	mutex          = &sync.Mutex{}
 )
 
+// Config holds all configuration settings
+type Config struct {
+	Port            string        `mapstructure:"PORT"`
+	RefreshInterval time.Duration `mapstructure:"REFRESH_INTERVAL"`
+	StaleThreshold  time.Duration `mapstructure:"STALE_THRESHOLD"`
+	ScanInterval    time.Duration `mapstructure:"SCAN_INTERVAL"`
+	ScanDuration    time.Duration `mapstructure:"SCAN_DURATION"`
+	ReloadInterval  time.Duration `mapstructure:"RELOAD_INTERVAL"`
+}
+
+// Default configuration values
 const (
 	defaultPort            = "8080"
-	defaultRefreshInterval = "30"
-	defaultStaleThreshold  = "300"
-	defaultScanInterval    = "15"
-	defaultScanDuration    = "15"
-	defaultReloadInterval  = "86400"
+	defaultRefreshInterval = "30s"
+	defaultStaleThreshold  = "300s"
+	defaultScanInterval    = "15s"
+	defaultScanDuration    = "15s"
+	defaultReloadInterval  = "86400s"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
 )
@@ -79,6 +86,28 @@ func init() {
 	prometheus.MustRegister(temperatureGauge)
 	prometheus.MustRegister(humidityGauge)
 	prometheus.MustRegister(batteryGauge)
+}
+
+func initConfig() (*Config, error) {
+	// Set default values
+	viper.SetDefault("PORT", defaultPort)
+	viper.SetDefault("REFRESH_INTERVAL", defaultRefreshInterval)
+	viper.SetDefault("STALE_THRESHOLD", defaultStaleThreshold)
+	viper.SetDefault("SCAN_INTERVAL", defaultScanInterval)
+	viper.SetDefault("SCAN_DURATION", defaultScanDuration)
+	viper.SetDefault("RELOAD_INTERVAL", defaultReloadInterval)
+
+	// Bind environment variables
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Create config struct
+	var config Config
+	if err := viper.Unmarshal(&config); err != nil {
+		return nil, fmt.Errorf("unable to decode config into struct: %v", err)
+	}
+
+	return &config, nil
 }
 
 func loadKnownGovees() {
@@ -135,7 +164,7 @@ func loadKnownGovees() {
 	}
 }
 
-func startBLEScanner(ctx context.Context) {
+func startBLEScanner(ctx context.Context, config *Config) {
 	// Add retry logic for enabling the adapter
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
@@ -159,7 +188,7 @@ func startBLEScanner(ctx context.Context) {
 			return
 		default:
 			// Create a context with timeout for scan duration
-			scanCtx, cancel := context.WithTimeout(ctx, scanDuration)
+			scanCtx, cancel := context.WithTimeout(ctx, config.ScanDuration)
 
 			// Start scanning with context
 			err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
@@ -184,7 +213,7 @@ func startBLEScanner(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(scanInterval):
+			case <-time.After(config.ScanInterval):
 			}
 		}
 	}
@@ -301,13 +330,13 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	mutex.Unlock()
 }
 
-func checkForStaleMetrics() {
+func checkForStaleMetrics(config *Config) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	now := time.Now()
 	for device, lastSeen := range lastUpdateTime {
-		if now.Sub(lastSeen) > staleThreshold {
+		if now.Sub(lastSeen) > config.StaleThreshold {
 			temperatureGauge.DeleteLabelValues(device)
 			humidityGauge.DeleteLabelValues(device)
 			batteryGauge.DeleteLabelValues(device)
@@ -330,68 +359,13 @@ func checkForStaleMetrics() {
 }
 
 func main() {
+	// Initialize configuration
+	config, err := initConfig()
+	if err != nil {
+		log.Fatalf("Failed to initialize configuration: %v", err)
+	}
+
 	loadKnownGovees()
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-
-	refreshIntervalStr := os.Getenv("REFRESH_INTERVAL")
-	if refreshIntervalStr == "" {
-		refreshIntervalStr = defaultRefreshInterval
-	}
-
-	staleThresholdStr := os.Getenv("STALE_THRESHOLD")
-	if staleThresholdStr == "" {
-		staleThresholdStr = defaultStaleThreshold
-	}
-
-	scanIntervalStr := os.Getenv("SCAN_INTERVAL")
-	if scanIntervalStr == "" {
-		scanIntervalStr = defaultScanInterval
-	}
-
-	scanDurationStr := os.Getenv("SCAN_DURATION")
-	if scanDurationStr == "" {
-		scanDurationStr = defaultScanDuration
-	}
-
-	reloadIntervalStr := os.Getenv("RELOAD_INTERVAL")
-	if reloadIntervalStr == "" {
-		reloadIntervalStr = defaultReloadInterval
-	}
-
-	refreshIntervalSeconds, err := strconv.Atoi(refreshIntervalStr)
-	if err != nil || refreshIntervalSeconds <= 0 {
-		log.Fatalf("Invalid REFRESH_INTERVAL: %s", refreshIntervalStr)
-	}
-
-	staleThresholdSeconds, err := strconv.Atoi(staleThresholdStr)
-	if err != nil || staleThresholdSeconds <= 0 {
-		log.Fatalf("Invalid STALE_THRESHOLD: %s", staleThresholdStr)
-	}
-
-	scanIntervalSeconds, err := strconv.Atoi(scanIntervalStr)
-	if err != nil || scanIntervalSeconds <= 0 {
-		log.Fatalf("Invalid SCAN_INTERVAL: %s", scanIntervalStr)
-	}
-
-	scanDurationSeconds, err := strconv.Atoi(scanDurationStr)
-	if err != nil || scanDurationSeconds <= 0 {
-		log.Fatalf("Invalid SCAN_DURATION: %s", scanDurationStr)
-	}
-
-	reloadIntervalSeconds, err := strconv.Atoi(reloadIntervalStr)
-	if err != nil || reloadIntervalSeconds <= 0 {
-		log.Fatalf("Invalid RELOAD_INTERVAL: %s", reloadIntervalStr)
-	}
-
-	staleThreshold = time.Duration(staleThresholdSeconds) * time.Second
-	scanInterval = time.Duration(scanIntervalSeconds) * time.Second
-	scanDuration = time.Duration(scanDurationSeconds) * time.Second
-	reloadInterval = time.Duration(reloadIntervalSeconds) * time.Second
-	refreshInterval = time.Duration(refreshIntervalSeconds) * time.Second
 
 	// Create a context that will be canceled on shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -408,7 +382,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(reloadInterval):
+			case <-time.After(config.ReloadInterval):
 				loadKnownGovees()
 			}
 		}
@@ -418,7 +392,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		startBLEScanner(ctx)
+		startBLEScanner(ctx, config)
 	}()
 
 	// Start the stale metrics checker
@@ -429,8 +403,8 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(refreshInterval):
-				checkForStaleMetrics()
+			case <-time.After(config.RefreshInterval):
+				checkForStaleMetrics(config)
 			}
 		}
 	}()
@@ -449,7 +423,7 @@ func main() {
 	mux.Handle("/", fs)
 
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + config.Port,
 		Handler: mux,
 	}
 
@@ -461,17 +435,17 @@ func main() {
 	go func() {
 		log.Printf(`Starting metrics server with configuration:
     Port:             %s
-    Scan Duration:    %d seconds
-    Scan Interval:    %d seconds
-    Refresh Interval: %d seconds
-    Reload Interval:  %d seconds
-    Stale Threshold:  %d seconds`,
-			port,
-			scanDurationSeconds,
-			scanIntervalSeconds,
-			refreshIntervalSeconds,
-			reloadIntervalSeconds,
-			staleThresholdSeconds)
+    Scan Duration:    %v
+    Scan Interval:    %v
+    Refresh Interval: %v
+    Reload Interval:  %v
+    Stale Threshold:  %v`,
+			config.Port,
+			config.ScanDuration,
+			config.ScanInterval,
+			config.RefreshInterval,
+			config.ReloadInterval,
+			config.StaleThreshold)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
 			cancel() // Cancel context on server error
