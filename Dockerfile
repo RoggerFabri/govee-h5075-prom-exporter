@@ -1,5 +1,5 @@
 # Stage 1: Build the Go application
-FROM golang:1.24.2 AS builder
+FROM golang:1.24.3 AS builder
 
 # Set environment variables for cross-compilation
 ENV CGO_ENABLED=0
