@@ -18,7 +18,7 @@ COPY . .
 RUN go build -ldflags="-w -s -extldflags=-static" -o govee_exporter main.go
 
 # Stage 2: Create a minimal runtime container
-FROM alpine:3.21
+FROM alpine:3.22
 
 # Container metadata
 LABEL maintainer="Rogger Fabri" \
