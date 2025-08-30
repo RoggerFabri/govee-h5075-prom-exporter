@@ -327,30 +327,30 @@ func TestConfigInitialization(t *testing.T) {
 func TestScanCompletionLogging(t *testing.T) {
 	// Create a buffer to capture log output
 	var logBuf bytes.Buffer
-	
+
 	// Save the original log output and restore it after the test
 	originalOutput := log.Writer()
 	defer log.SetOutput(originalOutput)
-	
+
 	// Set log output to our buffer
 	log.SetOutput(&logBuf)
-	
+
 	// Create a config with test values
 	config := &Config{
 		ScanInterval: 2 * time.Hour,
 		ScanDuration: 30 * time.Second,
 	}
-	
+
 	// Create a context that we can cancel to simulate scan completion
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Start a goroutine that simulates the scan completion logging
 	go func() {
 		// Simulate the scan completion message
 		log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
 		cancel() // Cancel the context to end the test
 	}()
-	
+
 	// Wait for the context to be cancelled or timeout
 	select {
 	case <-ctx.Done():
@@ -358,24 +358,24 @@ func TestScanCompletionLogging(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("Test timed out waiting for scan completion message")
 	}
-	
+
 	// Check that the log contains the expected message
 	logOutput := logBuf.String()
 	expectedMessage := "Scan completed. Sleeping for 2h0m0s until next scan..."
-	
+
 	if !strings.Contains(logOutput, expectedMessage) {
 		t.Errorf("Expected log message not found.\nGot: %s\nWant substring: %s", logOutput, expectedMessage)
 	}
-	
+
 	// Verify the log message format is correct
 	if !strings.Contains(logOutput, "Scan completed.") {
 		t.Error("Log should contain 'Scan completed.'")
 	}
-	
+
 	if !strings.Contains(logOutput, "Sleeping for") {
 		t.Error("Log should contain 'Sleeping for'")
 	}
-	
+
 	if !strings.Contains(logOutput, "until next scan...") {
 		t.Error("Log should contain 'until next scan...'")
 	}
@@ -404,31 +404,31 @@ func TestScanCompletionLoggingWithDifferentIntervals(t *testing.T) {
 			expected:     "Sleeping for 15s until next scan...",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a buffer to capture log output
 			var logBuf bytes.Buffer
-			
+
 			// Save the original log output and restore it after the test
 			originalOutput := log.Writer()
 			defer log.SetOutput(originalOutput)
-			
+
 			// Set log output to our buffer
 			log.SetOutput(&logBuf)
-			
+
 			// Create a config with the test interval
 			config := &Config{
 				ScanInterval: tc.scanInterval,
 				ScanDuration: 1 * time.Minute,
 			}
-			
+
 			// Simulate the scan completion message
 			log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
-			
+
 			// Check that the log contains the expected message
 			logOutput := logBuf.String()
-			
+
 			if !strings.Contains(logOutput, tc.expected) {
 				t.Errorf("Expected log message not found.\nGot: %s\nWant substring: %s", logOutput, tc.expected)
 			}
