@@ -209,6 +209,9 @@ func startBLEScanner(ctx context.Context, config *Config) {
 				continue
 			}
 
+			// Log completion of scan and upcoming sleep period
+			log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
+
 			// Rest period between scans
 			select {
 			case <-ctx.Done():
