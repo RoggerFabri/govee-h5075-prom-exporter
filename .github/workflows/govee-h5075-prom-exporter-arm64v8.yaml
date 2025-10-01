@@ -1,4 +1,6 @@
 name: govee-h5075-prom-exporter-arm64v8
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
