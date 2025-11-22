@@ -9,13 +9,15 @@ WORKDIR /app
 
 # Copy the Go modules manifests and download dependencies
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # Copy the application source code and static files
 COPY . .
 
 # Build the Go application with additional security flags
-RUN go build -ldflags="-w -s -extldflags=-static" -o govee_exporter .
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    go build -p 8 -ldflags="-w -s -extldflags=-static" -o govee_exporter .
 
 # Stage 2: Create a minimal runtime container
 FROM alpine:3.22
