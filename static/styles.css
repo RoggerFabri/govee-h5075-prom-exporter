@@ -434,46 +434,49 @@ body {
     }
     
     .group-header {
-        padding: 12px 14px;
-        font-size: 0.9rem;
-        flex-wrap: wrap;
-        gap: 8px;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        flex-wrap: nowrap;
+        gap: 6px;
     }
     
     .group-toggle {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
     }
     
     .group-name {
-        font-size: 0.95rem;
-        flex: 0 0 100%;
-        order: 1;
+        font-size: 0.9rem;
+        flex-shrink: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .group-stats {
-        gap: 6px;
-        margin-left: 28px;
-        margin-right: auto;
-        order: 2;
-        flex: 1;
+        gap: 4px;
+        margin-left: auto;
+        margin-right: 4px;
+        flex-shrink: 0;
     }
     
     .group-stat {
-        font-size: 0.75rem;
-        padding: 2px 6px;
+        font-size: 0.7rem;
+        padding: 2px 4px;
+        gap: 2px;
     }
     
     .group-stat svg {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
     }
     
     .group-count {
-        font-size: 0.75rem;
-        padding: 2px 8px;
-        order: 3;
-        margin-left: auto;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .card {
