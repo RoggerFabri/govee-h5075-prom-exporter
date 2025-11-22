@@ -461,7 +461,7 @@ body {
     background: var(--primary-color);
     transform-origin: left;
     transition: transform 1s linear;
-    opacity: 0.7;
+    opacity: 0.3;
 }
 
 @media (max-width: 600px) {

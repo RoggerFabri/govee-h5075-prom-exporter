@@ -563,7 +563,167 @@ async function fetchMetrics() {
             `;
         }).join('');
 
-        container.innerHTML = containerHTML;
+        // Update DOM efficiently - only update if structure changed
+        const existingGroups = [...container.querySelectorAll('.device-group')];
+        const existingGroupNames = existingGroups.map(g => g.getAttribute('data-group'));
+        const hasStructureChanged = 
+            existingGroupNames.length !== sortedGroupNames.length ||
+            !sortedGroupNames.every((name, i) => name === existingGroupNames[i]);
+        
+        if (hasStructureChanged) {
+            // Structure changed - rebuild entire container
+            container.innerHTML = containerHTML;
+        } else {
+            // Structure unchanged - update values only
+            sortedGroupNames.forEach((groupName, index) => {
+                const groupElement = existingGroups[index];
+                const roomsInGroup = groupedRooms[groupName];
+                
+                // Calculate group averages
+                let tempSum = 0, tempCount = 0;
+                let humidSum = 0, humidCount = 0;
+                
+                roomsInGroup.forEach(({ data }) => {
+                    if (typeof data.temperature !== 'undefined') {
+                        tempSum += data.temperature;
+                        tempCount++;
+                    }
+                    if (typeof data.humidity !== 'undefined') {
+                        humidSum += data.humidity;
+                        humidCount++;
+                    }
+                });
+                
+                const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
+                const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
+                
+                // Update group stats
+                const statsContainer = groupElement.querySelector('.group-stats');
+                if (statsContainer) {
+                    const tempStat = statsContainer.querySelector('.group-stat[title="Average Temperature"]');
+                    const humidStat = statsContainer.querySelector('.group-stat[title="Average Humidity"]');
+                    
+                    if (tempStat && avgTemp !== null) {
+                        const tempText = tempStat.childNodes[tempStat.childNodes.length - 1];
+                        if (tempText && tempText.textContent !== `${avgTemp}°C`) {
+                            tempText.textContent = `${avgTemp}°C`;
+                        }
+                    }
+                    
+                    if (humidStat && avgHumid !== null) {
+                        const humidText = humidStat.childNodes[humidStat.childNodes.length - 1];
+                        if (humidText && humidText.textContent !== `${avgHumid}%`) {
+                            humidText.textContent = `${avgHumid}%`;
+                        }
+                    }
+                }
+                
+                // Update device count
+                const countElement = groupElement.querySelector('.group-count');
+                if (countElement) {
+                    const newCount = `${roomsInGroup.length} device${roomsInGroup.length !== 1 ? 's' : ''}`;
+                    if (countElement.textContent !== newCount) {
+                        countElement.textContent = newCount;
+                    }
+                }
+                
+                // Update cards within the group
+                roomsInGroup.forEach(({ name, data }) => {
+                    const card = groupElement.querySelector(`.card[data-room="${CSS.escape(name)}"]`);
+                    if (!card) return;
+                    
+                    const prev = previousValues[name] || {};
+                    
+                    // Update temperature
+                    if (typeof data.temperature !== 'undefined') {
+                        const tempMetric = card.querySelector('.temperature');
+                        if (tempMetric) {
+                            const valueSpan = tempMetric.querySelector('.metric-value');
+                            const progressBar = tempMetric.querySelector('.progress');
+                            const newTemp = data.temperature.toFixed(1);
+                            
+                            if (valueSpan) {
+                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                                if (currentText !== `${newTemp}°C`) {
+                                    // Check if value changed for animation
+                                    if (prev.temperature !== null && Math.abs(data.temperature - prev.temperature) >= 0.1) {
+                                        valueSpan.classList.add('changed');
+                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                                    }
+                                    
+                                    // Update the text node (first child)
+                                    if (valueSpan.childNodes[0]) {
+                                        valueSpan.childNodes[0].textContent = `${newTemp}°C`;
+                                    }
+                                }
+                            }
+                            
+                            if (progressBar) {
+                                const newWidth = normalizeTemp(data.temperature);
+                                progressBar.style.width = `${newWidth}%`;
+                            }
+                        }
+                    }
+                    
+                    // Update humidity
+                    if (typeof data.humidity !== 'undefined') {
+                        const humidMetric = card.querySelector('.humidity');
+                        if (humidMetric) {
+                            const valueSpan = humidMetric.querySelector('.metric-value');
+                            const progressBar = humidMetric.querySelector('.progress');
+                            const newHumid = data.humidity.toFixed(1);
+                            
+                            if (valueSpan) {
+                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                                if (currentText !== `${newHumid}%`) {
+                                    if (prev.humidity !== null && Math.abs(data.humidity - prev.humidity) >= 0.1) {
+                                        valueSpan.classList.add('changed');
+                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                                    }
+                                    
+                                    if (valueSpan.childNodes[0]) {
+                                        valueSpan.childNodes[0].textContent = `${newHumid}%`;
+                                    }
+                                }
+                            }
+                            
+                            if (progressBar) {
+                                progressBar.style.width = `${Math.max(0, data.humidity)}%`;
+                            }
+                        }
+                    }
+                    
+                    // Update battery
+                    if (typeof data.battery !== 'undefined') {
+                        const battMetric = card.querySelector('.battery');
+                        if (battMetric) {
+                            const valueSpan = battMetric.querySelector('.metric-value');
+                            const progressBar = battMetric.querySelector('.progress');
+                            const newBatt = Math.round(data.battery);
+                            
+                            if (valueSpan) {
+                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                                if (currentText !== `${newBatt}%`) {
+                                    if (prev.battery !== null && Math.abs(data.battery - prev.battery) >= 0.1) {
+                                        valueSpan.classList.add('changed');
+                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                                    }
+                                    
+                                    if (valueSpan.childNodes[0]) {
+                                        valueSpan.childNodes[0].textContent = `${newBatt}%`;
+                                    }
+                                }
+                            }
+                            
+                            if (progressBar) {
+                                progressBar.style.width = `${Math.max(0, data.battery)}%`;
+                            }
+                        }
+                    }
+                });
+            });
+        }
+        
         startProgressBar();
         container.classList.remove('error');
         
