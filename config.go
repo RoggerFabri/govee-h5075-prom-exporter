@@ -10,6 +10,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Device represents a known Govee H5075 device
+type Device struct {
+	MAC  string `mapstructure:"mac"`
+	Name string `mapstructure:"name"`
+	Offsets struct {
+		Temperature float64 `mapstructure:"temperature"`
+		Humidity    float64 `mapstructure:"humidity"`
+	} `mapstructure:"offsets"`
+}
+
 // Config holds all configuration settings
 type Config struct {
 	Server struct {
@@ -24,7 +34,6 @@ type Config struct {
 	Metrics struct {
 		RefreshInterval string `mapstructure:"refreshInterval"`
 		StaleThreshold  string `mapstructure:"staleThreshold"`
-		ReloadInterval  string `mapstructure:"reloadInterval"`
 	} `mapstructure:"metrics"`
 
 	Thresholds struct {
@@ -44,6 +53,8 @@ type Config struct {
 			Low float64 `mapstructure:"low"`
 		} `mapstructure:"battery"`
 	} `mapstructure:"thresholds"`
+
+	Devices []Device `mapstructure:"devices"`
 }
 
 // ConfigSource tracks where each config value came from
@@ -60,7 +71,6 @@ const (
 	defaultStaleThreshold  = "5m"
 	defaultScanInterval    = "15s"
 	defaultScanDuration    = "15s"
-	defaultReloadInterval  = "24h"
 )
 
 // Default threshold values
@@ -93,7 +103,6 @@ func initConfig() (*Config, []ConfigSource, error) {
 	viper.SetDefault("bluetooth.scanDuration", defaultScanDuration)
 	viper.SetDefault("metrics.refreshInterval", defaultRefreshInterval)
 	viper.SetDefault("metrics.staleThreshold", defaultStaleThreshold)
-	viper.SetDefault("metrics.reloadInterval", defaultReloadInterval)
 	viper.SetDefault("thresholds.temperature.min", defaultTemperatureMin)
 	viper.SetDefault("thresholds.temperature.max", defaultTemperatureMax)
 	viper.SetDefault("thresholds.temperature.low", defaultTemperatureLowThreshold)
@@ -101,6 +110,7 @@ func initConfig() (*Config, []ConfigSource, error) {
 	viper.SetDefault("thresholds.humidity.low", defaultHumidityLowThreshold)
 	viper.SetDefault("thresholds.humidity.high", defaultHumidityHighThreshold)
 	viper.SetDefault("thresholds.battery.low", defaultBatteryLowThreshold)
+	viper.SetDefault("devices", []Device{}) // Empty device list by default
 
 	// Track configuration sources
 	sources := []ConfigSource{}
@@ -129,7 +139,6 @@ func initConfig() (*Config, []ConfigSource, error) {
 	viper.BindEnv("bluetooth.scanDuration", "SCAN_DURATION")
 	viper.BindEnv("metrics.refreshInterval", "REFRESH_INTERVAL")
 	viper.BindEnv("metrics.staleThreshold", "STALE_THRESHOLD")
-	viper.BindEnv("metrics.reloadInterval", "RELOAD_INTERVAL")
 	viper.BindEnv("thresholds.temperature.min", "TEMPERATURE_MIN")
 	viper.BindEnv("thresholds.temperature.max", "TEMPERATURE_MAX")
 	viper.BindEnv("thresholds.temperature.low", "TEMPERATURE_LOW_THRESHOLD")
@@ -155,7 +164,6 @@ func initConfig() (*Config, []ConfigSource, error) {
 		{"bluetooth.scanDuration", config.Bluetooth.ScanDuration, "SCAN_DURATION"},
 		{"metrics.refreshInterval", config.Metrics.RefreshInterval, "REFRESH_INTERVAL"},
 		{"metrics.staleThreshold", config.Metrics.StaleThreshold, "STALE_THRESHOLD"},
-		{"metrics.reloadInterval", config.Metrics.ReloadInterval, "RELOAD_INTERVAL"},
 		{"thresholds.temperature.min", config.Thresholds.Temperature.Min, "TEMPERATURE_MIN"},
 		{"thresholds.temperature.max", config.Thresholds.Temperature.Max, "TEMPERATURE_MAX"},
 		{"thresholds.temperature.low", config.Thresholds.Temperature.Low, "TEMPERATURE_LOW_THRESHOLD"},
@@ -164,6 +172,19 @@ func initConfig() (*Config, []ConfigSource, error) {
 		{"thresholds.humidity.high", config.Thresholds.Humidity.High, "HUMIDITY_HIGH_THRESHOLD"},
 		{"thresholds.battery.low", config.Thresholds.Battery.Low, "BATTERY_LOW_THRESHOLD"},
 	}
+	
+	// Add devices source information
+	devicesSource := "default"
+	if len(config.Devices) > 0 {
+		if configFileUsed && viper.InConfig("devices") {
+			devicesSource = "config.yaml"
+		}
+	}
+	sources = append(sources, ConfigSource{
+		Key:    "devices",
+		Value:  fmt.Sprintf("%d devices", len(config.Devices)),
+		Source: devicesSource,
+	})
 
 	for _, item := range configKeys {
 		source := "default"

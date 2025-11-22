@@ -18,7 +18,6 @@ func TestConfigInitialization(t *testing.T) {
 	expectedStale := defaultStaleThreshold
 	expectedScan := defaultScanInterval
 	expectedDuration := defaultScanDuration
-	expectedReload := defaultReloadInterval
 
 	// Verify default values
 	if config.Server.Port != expectedPort {
@@ -36,9 +35,6 @@ func TestConfigInitialization(t *testing.T) {
 	if config.Bluetooth.ScanDuration != expectedDuration {
 		t.Errorf("Bluetooth.ScanDuration = %v, want %v", config.Bluetooth.ScanDuration, expectedDuration)
 	}
-	if config.Metrics.ReloadInterval != expectedReload {
-		t.Errorf("Metrics.ReloadInterval = %v, want %v", config.Metrics.ReloadInterval, expectedReload)
-	}
 
 	// Test case 2: Environment variables
 	os.Setenv("PORT", "9090")
@@ -46,14 +42,12 @@ func TestConfigInitialization(t *testing.T) {
 	os.Setenv("STALE_THRESHOLD", "10m")
 	os.Setenv("SCAN_INTERVAL", "30s")
 	os.Setenv("SCAN_DURATION", "1m")
-	os.Setenv("RELOAD_INTERVAL", "12h")
 	defer func() {
 		os.Unsetenv("PORT")
 		os.Unsetenv("REFRESH_INTERVAL")
 		os.Unsetenv("STALE_THRESHOLD")
 		os.Unsetenv("SCAN_INTERVAL")
 		os.Unsetenv("SCAN_DURATION")
-		os.Unsetenv("RELOAD_INTERVAL")
 	}()
 
 	config, _, err = initConfig()
@@ -66,7 +60,6 @@ func TestConfigInitialization(t *testing.T) {
 	expectedStale = "10m"
 	expectedScan = "30s"
 	expectedDuration = "1m"
-	expectedReload = "12h"
 
 	// Verify environment variable values
 	if config.Server.Port != "9090" {
@@ -83,9 +76,6 @@ func TestConfigInitialization(t *testing.T) {
 	}
 	if config.Bluetooth.ScanDuration != expectedDuration {
 		t.Errorf("Bluetooth.ScanDuration = %v, want %v", config.Bluetooth.ScanDuration, expectedDuration)
-	}
-	if config.Metrics.ReloadInterval != expectedReload {
-		t.Errorf("Metrics.ReloadInterval = %v, want %v", config.Metrics.ReloadInterval, expectedReload)
 	}
 }
 
