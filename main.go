@@ -376,7 +376,7 @@ func main() {
 	mux.HandleFunc("/config.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Header().Set("Cache-Control", "no-cache")
-		
+
 		// Build device groups map
 		mutex.Lock()
 		deviceGroups := make(map[string]string)
@@ -384,14 +384,14 @@ func main() {
 			deviceGroups[device.Name] = device.Group
 		}
 		mutex.Unlock()
-		
+
 		// Convert to JSON securely using encoding/json
 		deviceGroupsJSON, err := json.Marshal(deviceGroups)
 		if err != nil {
 			log.Printf("Error marshaling device groups: %v", err)
 			deviceGroupsJSON = []byte("{}")
 		}
-		
+
 		configJS := fmt.Sprintf(`// Dashboard configuration from environment variables
 window.DASHBOARD_CONFIG = {
     TEMPERATURE_MIN: %v,
