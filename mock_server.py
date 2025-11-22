@@ -2,9 +2,21 @@ from flask import Flask, Response, send_from_directory
 import random
 import time
 import threading
+import os
 
 # Initialize Flask app with explicit static folder configuration
 app = Flask(__name__, static_url_path='', static_folder='static')
+
+# Load threshold configuration from environment variables
+THRESHOLDS = {
+    'TEMPERATURE_MIN': float(os.getenv('TEMPERATURE_MIN', '-20')),
+    'TEMPERATURE_MAX': float(os.getenv('TEMPERATURE_MAX', '40')),
+    'TEMPERATURE_LOW_THRESHOLD': float(os.getenv('TEMPERATURE_LOW_THRESHOLD', '0')),
+    'TEMPERATURE_HIGH_THRESHOLD': float(os.getenv('TEMPERATURE_HIGH_THRESHOLD', '35')),
+    'HUMIDITY_LOW_THRESHOLD': float(os.getenv('HUMIDITY_LOW_THRESHOLD', '30')),
+    'HUMIDITY_HIGH_THRESHOLD': float(os.getenv('HUMIDITY_HIGH_THRESHOLD', '70')),
+    'BATTERY_LOW_THRESHOLD': float(os.getenv('BATTERY_LOW_THRESHOLD', '5'))
+}
 
 # Mock devices with initial values
 devices = {
@@ -91,6 +103,21 @@ def metrics():
     
     return Response('\n'.join(lines), mimetype='text/plain')
 
+@app.route('/config.js')
+def config_js():
+    """Serve threshold configuration as JavaScript"""
+    config_content = f'''// Dashboard configuration from environment variables
+window.DASHBOARD_CONFIG = {{
+    TEMPERATURE_MIN: {THRESHOLDS['TEMPERATURE_MIN']},
+    TEMPERATURE_MAX: {THRESHOLDS['TEMPERATURE_MAX']},
+    TEMPERATURE_LOW_THRESHOLD: {THRESHOLDS['TEMPERATURE_LOW_THRESHOLD']},
+    TEMPERATURE_HIGH_THRESHOLD: {THRESHOLDS['TEMPERATURE_HIGH_THRESHOLD']},
+    HUMIDITY_LOW_THRESHOLD: {THRESHOLDS['HUMIDITY_LOW_THRESHOLD']},
+    HUMIDITY_HIGH_THRESHOLD: {THRESHOLDS['HUMIDITY_HIGH_THRESHOLD']},
+    BATTERY_LOW_THRESHOLD: {THRESHOLDS['BATTERY_LOW_THRESHOLD']}
+}};'''
+    return Response(config_content, mimetype='application/javascript')
+
 @app.after_request
 def add_header(response):
     """Add headers for browser compatibility and caching"""
@@ -133,9 +160,9 @@ Standard devices:
 Edge case examples:
 - Freezer (negative temperature: -18°C, blue snowflake warning)
 - Garage (low battery: 2%, orange triangle warning)
-- Sauna (high temperature: 38°C, red flame warning)
+- Sauna (high temperature: 38°C, red flame warning + low humidity: 25%, amber droplet warning)
 - Greenhouse (high humidity: 85%, cyan droplet warning)
-- Server Room (low humidity: 15%)
+- Server Room (low humidity: 15%, amber droplet warning)
 - Outdoor Shed (multiple warnings: freezing temp + low battery)
 - Wine Cellar (boundary test: 0°C)
 - Storage Unit (boundary test: 5% battery)

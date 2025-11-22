@@ -69,6 +69,17 @@ type Config struct {
 	ReloadInterval  time.Duration `mapstructure:"RELOAD_INTERVAL"`
 }
 
+// ThresholdConfig holds dashboard warning threshold settings
+type ThresholdConfig struct {
+	TemperatureMin           float64 `mapstructure:"TEMPERATURE_MIN"`
+	TemperatureMax           float64 `mapstructure:"TEMPERATURE_MAX"`
+	TemperatureLowThreshold  float64 `mapstructure:"TEMPERATURE_LOW_THRESHOLD"`
+	TemperatureHighThreshold float64 `mapstructure:"TEMPERATURE_HIGH_THRESHOLD"`
+	HumidityLowThreshold     float64 `mapstructure:"HUMIDITY_LOW_THRESHOLD"`
+	HumidityHighThreshold    float64 `mapstructure:"HUMIDITY_HIGH_THRESHOLD"`
+	BatteryLowThreshold      float64 `mapstructure:"BATTERY_LOW_THRESHOLD"`
+}
+
 // Default configuration values
 const (
 	defaultPort            = "8080"
@@ -79,6 +90,17 @@ const (
 	defaultReloadInterval  = "24h"
 	goveeManufacturerID    = uint16(0xEC88)
 	shutdownTimeout        = 5 * time.Second
+)
+
+// Default threshold values
+const (
+	defaultTemperatureMin           = -20.0
+	defaultTemperatureMax           = 40.0
+	defaultTemperatureLowThreshold  = 0.0
+	defaultTemperatureHighThreshold = 35.0
+	defaultHumidityLowThreshold     = 30.0
+	defaultHumidityHighThreshold    = 70.0
+	defaultBatteryLowThreshold      = 5.0
 )
 
 func init() {
@@ -108,6 +130,25 @@ func initConfig() (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func initThresholdConfig() (*ThresholdConfig, error) {
+	// Set default threshold values
+	viper.SetDefault("TEMPERATURE_MIN", defaultTemperatureMin)
+	viper.SetDefault("TEMPERATURE_MAX", defaultTemperatureMax)
+	viper.SetDefault("TEMPERATURE_LOW_THRESHOLD", defaultTemperatureLowThreshold)
+	viper.SetDefault("TEMPERATURE_HIGH_THRESHOLD", defaultTemperatureHighThreshold)
+	viper.SetDefault("HUMIDITY_LOW_THRESHOLD", defaultHumidityLowThreshold)
+	viper.SetDefault("HUMIDITY_HIGH_THRESHOLD", defaultHumidityHighThreshold)
+	viper.SetDefault("BATTERY_LOW_THRESHOLD", defaultBatteryLowThreshold)
+
+	// Bind environment variables (already enabled in initConfig)
+	var thresholdConfig ThresholdConfig
+	if err := viper.Unmarshal(&thresholdConfig); err != nil {
+		return nil, fmt.Errorf("unable to decode threshold config into struct: %v", err)
+	}
+
+	return &thresholdConfig, nil
 }
 
 func loadKnownGovees() {
@@ -412,12 +453,43 @@ func main() {
 		}
 	}()
 
+	// Load threshold configuration
+	thresholdConfig, err := initThresholdConfig()
+	if err != nil {
+		log.Fatalf("Error loading threshold configuration: %v", err)
+	}
+
 	// Serve static files with correct MIME types
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
+	})
+
+	// Serve threshold configuration as JavaScript
+	mux.HandleFunc("/config.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Cache-Control", "no-cache")
+		configJS := fmt.Sprintf(`// Dashboard configuration from environment variables
+window.DASHBOARD_CONFIG = {
+    TEMPERATURE_MIN: %v,
+    TEMPERATURE_MAX: %v,
+    TEMPERATURE_LOW_THRESHOLD: %v,
+    TEMPERATURE_HIGH_THRESHOLD: %v,
+    HUMIDITY_LOW_THRESHOLD: %v,
+    HUMIDITY_HIGH_THRESHOLD: %v,
+    BATTERY_LOW_THRESHOLD: %v
+};`,
+			thresholdConfig.TemperatureMin,
+			thresholdConfig.TemperatureMax,
+			thresholdConfig.TemperatureLowThreshold,
+			thresholdConfig.TemperatureHighThreshold,
+			thresholdConfig.HumidityLowThreshold,
+			thresholdConfig.HumidityHighThreshold,
+			thresholdConfig.BatteryLowThreshold,
+		)
+		w.Write([]byte(configJS))
 	})
 
 	// Create FileServer with custom file type mappings
