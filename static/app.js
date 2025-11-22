@@ -179,6 +179,28 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
     `;
 }
 
+// Store expanded state of groups
+const expandedGroups = new Set();
+
+function toggleGroup(groupElement) {
+    const groupName = groupElement.getAttribute('data-group');
+    if (!groupName) return;
+    
+    if (expandedGroups.has(groupName)) {
+        expandedGroups.delete(groupName);
+    } else {
+        expandedGroups.add(groupName);
+    }
+    
+    const content = groupElement.querySelector('.group-content');
+    const toggle = groupElement.querySelector('.group-toggle');
+    const isExpanded = expandedGroups.has(groupName);
+    
+    content.style.display = isExpanded ? 'grid' : 'none';
+    toggle.setAttribute('aria-expanded', isExpanded);
+    groupElement.classList.toggle('collapsed', !isExpanded);
+}
+
 async function fetchMetrics() {
     try {
         const controller = new AbortController();
@@ -193,6 +215,7 @@ async function fetchMetrics() {
         
         const text = await response.text();
         const rooms = {};
+        const deviceGroups = CONFIG.DEVICE_GROUPS || {};
 
         // Update connection status
         lastSuccessfulFetch = Date.now();
@@ -210,7 +233,9 @@ async function fetchMetrics() {
             
             const [, metric, name, value] = match;
             if (!rooms[name]) {
-                rooms[name] = {};
+                rooms[name] = {
+                    group: deviceGroups[name] || 'Ungrouped'
+                };
             }
             rooms[name][metric] = parseFloat(value);
         });
@@ -232,36 +257,75 @@ async function fetchMetrics() {
             };
         });
 
-        // Update or create cards for each room
+        // Group rooms by their group property
+        const groupedRooms = {};
         Object.entries(rooms).forEach(([room, data]) => {
-            let cardElement = document.getElementById('sensors-container').querySelector(`[data-room="${room}"]`);
-            const prev = previousValues[room] || {};
+            const groupName = data.group;
+            if (!groupedRooms[groupName]) {
+                groupedRooms[groupName] = [];
+            }
+            groupedRooms[groupName].push({ name: room, data });
+        });
+
+        // Sort rooms alphabetically within each group
+        Object.keys(groupedRooms).forEach(groupName => {
+            groupedRooms[groupName].sort((a, b) => a.name.localeCompare(b.name));
+        });
+
+        // Get sorted group names
+        const sortedGroupNames = Object.keys(groupedRooms).sort();
+
+        // Initialize all groups as expanded on first load
+        if (expandedGroups.size === 0) {
+            sortedGroupNames.forEach(group => expandedGroups.add(group));
+        }
+
+        // Escape HTML to prevent XSS
+        const escapeHtml = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+
+        // Build the HTML for all groups
+        const container = document.getElementById('sensors-container');
+        const containerHTML = sortedGroupNames.map(groupName => {
+            const isExpanded = expandedGroups.has(groupName);
+            const roomsInGroup = groupedRooms[groupName];
             
-            if (!cardElement) {
-                cardElement = document.createElement('div');
-                cardElement.className = 'card';
-                cardElement.setAttribute('data-room', room);
-                document.getElementById('sensors-container').appendChild(cardElement);
-            }
-
-            cardElement.innerHTML = `
-                <h2>${room}</h2>
-                ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
-                ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
-                ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
+            const cardsHTML = roomsInGroup.map(({ name, data }) => {
+                const prev = previousValues[name] || {};
+                return `
+                    <div class="card" data-room="${escapeHtml(name)}">
+                        <h2>${escapeHtml(name)}</h2>
+                        ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
+                        ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
+                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div class="device-group ${isExpanded ? '' : 'collapsed'}" data-group="${escapeHtml(groupName)}">
+                    <button class="group-header" aria-expanded="${isExpanded}">
+                        <span class="group-toggle" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                            </svg>
+                        </span>
+                        <span class="group-name">${escapeHtml(groupName)}</span>
+                        <span class="group-count">${roomsInGroup.length} device${roomsInGroup.length !== 1 ? 's' : ''}</span>
+                    </button>
+                    <div class="group-content" style="display: ${isExpanded ? 'grid' : 'none'}">
+                        ${cardsHTML}
+                    </div>
+                </div>
             `;
-        });
+        }).join('');
 
-        // Remove cards for rooms that no longer exist
-        document.getElementById('sensors-container').querySelectorAll('.card').forEach(card => {
-            const room = card.getAttribute('data-room');
-            if (!rooms[room]) {
-                card.remove();
-            }
-        });
-
+        container.innerHTML = containerHTML;
         startProgressBar();
-        document.getElementById('sensors-container').classList.remove('error');
+        container.classList.remove('error');
         
     } catch (error) {
         console.error('Error fetching metrics:', error);
@@ -297,6 +361,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial timestamp
     updateTimestamp();
+
+    // Event delegation for group header clicks
+    document.getElementById('sensors-container').addEventListener('click', (e) => {
+        const groupHeader = e.target.closest('.group-header');
+        if (groupHeader) {
+            const groupElement = groupHeader.closest('.device-group');
+            if (groupElement) {
+                toggleGroup(groupElement);
+            }
+        }
+    });
 
     // Initial fetch and periodic updates
     fetchMetrics();
