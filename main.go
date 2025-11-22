@@ -415,10 +415,21 @@ window.DASHBOARD_CONFIG = {
 		w.Write([]byte(configJS))
 	})
 
-	// Create FileServer with custom file type mappings
+	// Middleware to add no-cache headers for all responses
+	noCacheHandler := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set cache control headers to prevent caching
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	// Create FileServer with no-cache headers
 	fs := http.FileServer(http.Dir("static"))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-	mux.Handle("/", fs)
+	mux.Handle("/static/", noCacheHandler(http.StripPrefix("/static/", fs)))
+	mux.Handle("/", noCacheHandler(fs))
 
 	server := &http.Server{
 		Addr:    ":" + config.Server.Port,
