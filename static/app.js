@@ -1,6 +1,7 @@
 // Configuration
 const REFRESH_INTERVAL = 30000;
 const MAX_TEMPERATURE = 40;
+const MIN_TEMPERATURE = -20;
 const CONNECTION_TIMEOUT = 5000;
 
 // Connection state tracking
@@ -72,7 +73,10 @@ function startProgressBar() {
 
 // Updated utility functions
 function normalizeTemp(temp) {
-    return Math.max(0, ((temp - 0) / MAX_TEMPERATURE) * 100);
+    // Normalize temperature to 0-100% range, supporting negative temperatures
+    const tempRange = MAX_TEMPERATURE - MIN_TEMPERATURE;
+    const normalizedTemp = ((temp - MIN_TEMPERATURE) / tempRange) * 100;
+    return Math.max(0, Math.min(100, normalizedTemp));
 }
 
 function formatTrend(current, previous) {
@@ -84,19 +88,58 @@ function formatTrend(current, previous) {
 
 function createMetricElement(label, value, unit, type, previousValue = null) {
     const percentage = type === 'temperature' ? normalizeTemp(value) : Math.max(0, value);
-    const showWarning = type === 'battery' && value <= 5;
+    const showBatteryWarning = type === 'battery' && value <= 5;
+    const showFreezingWarning = type === 'temperature' && value < 0;
+    const showHotWarning = type === 'temperature' && value > 35;
+    const showHumidityWarning = type === 'humidity' && value > 70;
+    const showTemperatureWarning = showFreezingWarning || showHotWarning;
+    const showWarning = showBatteryWarning || showTemperatureWarning || showHumidityWarning;
     const trend = formatTrend(value, previousValue);
     const trendAnnouncement = trend ? `, ${trend} from previous reading` : '';
     const hasChanged = previousValue !== null && Math.abs(value - previousValue) >= 0.1;
     const changeClass = hasChanged ? 'changed' : '';
     
-    const warningIcon = showWarning ? `
-        <span class="warning-icon" role="alert" aria-label="Low Battery Warning">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-            </svg>
-        </span>
-    ` : '';
+    // Determine warning message and icon based on type
+    let warningLabel = '';
+    let warningIcon = '';
+    
+    if (showBatteryWarning) {
+        warningLabel = 'Low Battery Warning';
+        warningIcon = `
+            <span class="warning-icon" role="alert" aria-label="${warningLabel}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+            </span>
+        `;
+    } else if (showFreezingWarning) {
+        warningLabel = 'Freezing Temperature Warning';
+        warningIcon = `
+            <span class="warning-icon freezing-warning" role="alert" aria-label="${warningLabel}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2M12 6L11.5 8.5L9 9L11.5 9.5L12 12L12.5 9.5L15 9L12.5 8.5L12 6Z"/>
+                </svg>
+            </span>
+        `;
+    } else if (showHotWarning) {
+        warningLabel = 'High Temperature Warning';
+        warningIcon = `
+            <span class="warning-icon hot-warning" role="alert" aria-label="${warningLabel}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M11.5 3.5c0 .83-.67 1.5-1.5 1.5S8.5 4.33 8.5 3.5 9.17 2 10 2s1.5.67 1.5 1.5zM6.5 6c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S8.83 7.5 8 7.5 6.5 6.83 6.5 6zm7 0c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5-1.5.67-1.5 1.5zm2.5-2.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5zM12 8c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>
+                </svg>
+            </span>
+        `;
+    } else if (showHumidityWarning) {
+        warningLabel = 'High Humidity Warning';
+        warningIcon = `
+            <span class="warning-icon humidity-warning" role="alert" aria-label="${warningLabel}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0zm0 15.93A5.5 5.5 0 0 1 6.5 13c0-1.48.58-2.92 1.66-4l.01-.01L12 5.27l3.83 3.82.01.01c1.08 1.08 1.66 2.52 1.66 4a5.5 5.5 0 0 1-5.5 5.62z"/>
+                </svg>
+            </span>
+        `;
+    }
 
     return `
         <div class="metric ${type}" data-value="${value}">
@@ -110,7 +153,7 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
             <div class="progress-bar" 
                  role="progressbar" 
                  aria-valuenow="${value}" 
-                 aria-valuemin="0" 
+                 aria-valuemin="${type === 'temperature' ? MIN_TEMPERATURE : '0'}" 
                  aria-valuemax="${type === 'temperature' ? MAX_TEMPERATURE : '100'}"
                  aria-label="${label} level">
                 <div class="progress" style="width: ${percentage}%"></div>
@@ -145,7 +188,7 @@ async function fetchMetrics() {
         text.split('\n').forEach(line => {
             if (!line || line.startsWith('#')) return; // Skip empty lines and comments
             
-            const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([\d.]+)/);
+            const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([-\d.]+)/);
             if (!match) return;
             
             const [, metric, name, value] = match;

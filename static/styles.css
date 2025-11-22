@@ -239,6 +239,18 @@ body {
     margin-left: 4px;
 }
 
+.warning-icon.freezing-warning {
+    color: #2196F3; /* Blue color for freezing temperatures */
+}
+
+.warning-icon.hot-warning {
+    color: #FF5722; /* Red/orange color for high temperatures */
+}
+
+.warning-icon.humidity-warning {
+    color: #00BCD4; /* Cyan color for high humidity */
+}
+
 .warning-icon svg {
     width: 16px;
     height: 16px;
