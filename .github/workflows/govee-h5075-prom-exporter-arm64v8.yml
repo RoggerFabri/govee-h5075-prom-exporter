@@ -64,6 +64,8 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+          build-args: |
+            BUILDKIT_PROGRESS=plain
           tags: |
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-latest
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-${{github.run_number}}
