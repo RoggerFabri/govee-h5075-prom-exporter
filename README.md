@@ -36,7 +36,50 @@ http://localhost:8080/metrics
 
 ## ⚙️ Configuration
 
+Configuration can be provided in three ways, with the following precedence (highest to lowest):
+1. **Environment Variables** (highest priority)
+2. **config.yaml file** (medium priority)  
+3. **Default values** (lowest priority)
+
+At startup, the application will display where each configuration value is loaded from.
+
+### **🔹 Configuration File (config.yaml)**
+
+You can create a `config.yaml` file in the same directory as the executable with the following structure:
+
+```yaml
+# Server configuration
+server:
+  port: 8080
+
+# Bluetooth scanning
+bluetooth:
+  scanInterval: 15s
+  scanDuration: 15s
+  
+# Metrics management
+metrics:
+  refreshInterval: 30s
+  staleThreshold: 5m
+  reloadInterval: 24h
+
+# Dashboard warning thresholds
+thresholds:
+  temperature:
+    min: -20
+    max: 40
+    low: 0
+    high: 35
+  humidity:
+    low: 30
+    high: 70
+  battery:
+    low: 5
+```
+
 ### **🔹 Environment Variables**
+
+Environment variables override config.yaml values:
 
 #### **Server Configuration**
 | Variable           | Default | Description |
@@ -135,8 +178,39 @@ services:
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
       - ./.known_govees:/app/.known_govees:ro
+      - ./config.yaml:/app/config.yaml:ro  # Optional: comment out to use env vars only
     restart: unless-stopped
 ```
+
+**Note**: You can choose to configure the application using:
+- Only environment variables (comment out the config.yaml volume mount)
+- Only config.yaml (remove/comment environment variables)
+- Both (environment variables will override config.yaml values)
+
+### **📊 Configuration Source Logging**
+
+At startup, the application logs where each configuration value is loaded from:
+
+```
+Configuration loaded from:
+===========================
+  server.port                         = 8080                 [default]
+  bluetooth.scanInterval              = 15s                  [config.yaml]
+  bluetooth.scanDuration              = 15s                  [config.yaml]
+  metrics.refreshInterval             = 30s                  [environment]
+  metrics.staleThreshold              = 5m                   [default]
+  thresholds.temperature.min          = -20                  [default]
+  thresholds.temperature.max          = 40                   [default]
+  thresholds.temperature.low          = -5                   [environment]
+  thresholds.temperature.high         = 35                   [config.yaml]
+  thresholds.humidity.low             = 30                   [default]
+  thresholds.humidity.high            = 70                   [default]
+  thresholds.battery.low              = 5                    [default]
+===========================
+```
+
+This helps you understand which configuration source is being used for each setting
+
 
 ### **Start the Container**
 ```sh

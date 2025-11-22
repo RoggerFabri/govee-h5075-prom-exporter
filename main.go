@@ -16,7 +16,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/viper"
 	"tinygo.org/x/bluetooth"
 )
 
@@ -59,48 +58,10 @@ var (
 	mutex          = &sync.Mutex{}
 )
 
-// Config holds all configuration settings
-type Config struct {
-	Port            string        `mapstructure:"PORT"`
-	RefreshInterval time.Duration `mapstructure:"REFRESH_INTERVAL"`
-	StaleThreshold  time.Duration `mapstructure:"STALE_THRESHOLD"`
-	ScanInterval    time.Duration `mapstructure:"SCAN_INTERVAL"`
-	ScanDuration    time.Duration `mapstructure:"SCAN_DURATION"`
-	ReloadInterval  time.Duration `mapstructure:"RELOAD_INTERVAL"`
-}
-
-// ThresholdConfig holds dashboard warning threshold settings
-type ThresholdConfig struct {
-	TemperatureMin           float64 `mapstructure:"TEMPERATURE_MIN"`
-	TemperatureMax           float64 `mapstructure:"TEMPERATURE_MAX"`
-	TemperatureLowThreshold  float64 `mapstructure:"TEMPERATURE_LOW_THRESHOLD"`
-	TemperatureHighThreshold float64 `mapstructure:"TEMPERATURE_HIGH_THRESHOLD"`
-	HumidityLowThreshold     float64 `mapstructure:"HUMIDITY_LOW_THRESHOLD"`
-	HumidityHighThreshold    float64 `mapstructure:"HUMIDITY_HIGH_THRESHOLD"`
-	BatteryLowThreshold      float64 `mapstructure:"BATTERY_LOW_THRESHOLD"`
-}
-
-// Default configuration values
+// Application constants
 const (
-	defaultPort            = "8080"
-	defaultRefreshInterval = "30s"
-	defaultStaleThreshold  = "5m"
-	defaultScanInterval    = "15s"
-	defaultScanDuration    = "15s"
-	defaultReloadInterval  = "24h"
-	goveeManufacturerID    = uint16(0xEC88)
-	shutdownTimeout        = 5 * time.Second
-)
-
-// Default threshold values
-const (
-	defaultTemperatureMin           = -20.0
-	defaultTemperatureMax           = 40.0
-	defaultTemperatureLowThreshold  = 0.0
-	defaultTemperatureHighThreshold = 35.0
-	defaultHumidityLowThreshold     = 30.0
-	defaultHumidityHighThreshold    = 70.0
-	defaultBatteryLowThreshold      = 5.0
+	goveeManufacturerID = uint16(0xEC88)
+	shutdownTimeout     = 5 * time.Second
 )
 
 func init() {
@@ -108,47 +69,6 @@ func init() {
 	prometheus.MustRegister(temperatureGauge)
 	prometheus.MustRegister(humidityGauge)
 	prometheus.MustRegister(batteryGauge)
-}
-
-func initConfig() (*Config, error) {
-	// Set default values
-	viper.SetDefault("PORT", defaultPort)
-	viper.SetDefault("REFRESH_INTERVAL", defaultRefreshInterval)
-	viper.SetDefault("STALE_THRESHOLD", defaultStaleThreshold)
-	viper.SetDefault("SCAN_INTERVAL", defaultScanInterval)
-	viper.SetDefault("SCAN_DURATION", defaultScanDuration)
-	viper.SetDefault("RELOAD_INTERVAL", defaultReloadInterval)
-
-	// Bind environment variables
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	// Create config struct
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("unable to decode config into struct: %v", err)
-	}
-
-	return &config, nil
-}
-
-func initThresholdConfig() (*ThresholdConfig, error) {
-	// Set default threshold values
-	viper.SetDefault("TEMPERATURE_MIN", defaultTemperatureMin)
-	viper.SetDefault("TEMPERATURE_MAX", defaultTemperatureMax)
-	viper.SetDefault("TEMPERATURE_LOW_THRESHOLD", defaultTemperatureLowThreshold)
-	viper.SetDefault("TEMPERATURE_HIGH_THRESHOLD", defaultTemperatureHighThreshold)
-	viper.SetDefault("HUMIDITY_LOW_THRESHOLD", defaultHumidityLowThreshold)
-	viper.SetDefault("HUMIDITY_HIGH_THRESHOLD", defaultHumidityHighThreshold)
-	viper.SetDefault("BATTERY_LOW_THRESHOLD", defaultBatteryLowThreshold)
-
-	// Bind environment variables (already enabled in initConfig)
-	var thresholdConfig ThresholdConfig
-	if err := viper.Unmarshal(&thresholdConfig); err != nil {
-		return nil, fmt.Errorf("unable to decode threshold config into struct: %v", err)
-	}
-
-	return &thresholdConfig, nil
 }
 
 func loadKnownGovees() {
@@ -229,7 +149,7 @@ func startBLEScanner(ctx context.Context, config *Config) {
 			return
 		default:
 			// Create a context with timeout for scan duration
-			scanCtx, cancel := context.WithTimeout(ctx, config.ScanDuration)
+			scanCtx, cancel := context.WithTimeout(ctx, parseDuration(config.Bluetooth.ScanDuration))
 
 			// Start scanning with context
 			err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
@@ -251,13 +171,14 @@ func startBLEScanner(ctx context.Context, config *Config) {
 			}
 
 			// Log completion of scan and upcoming sleep period
-			log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
+			scanInterval := parseDuration(config.Bluetooth.ScanInterval)
+			log.Printf("Scan completed. Sleeping for %v until next scan...", scanInterval)
 
 			// Rest period between scans
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(config.ScanInterval):
+			case <-time.After(scanInterval):
 			}
 		}
 	}
@@ -379,8 +300,9 @@ func checkForStaleMetrics(config *Config) {
 	defer mutex.Unlock()
 
 	now := time.Now()
+	staleThreshold := parseDuration(config.Metrics.StaleThreshold)
 	for device, lastSeen := range lastUpdateTime {
-		if now.Sub(lastSeen) > config.StaleThreshold {
+		if now.Sub(lastSeen) > staleThreshold {
 			temperatureGauge.DeleteLabelValues(device)
 			humidityGauge.DeleteLabelValues(device)
 			batteryGauge.DeleteLabelValues(device)
@@ -404,10 +326,18 @@ func checkForStaleMetrics(config *Config) {
 
 func main() {
 	// Initialize configuration
-	config, err := initConfig()
+	config, sources, err := initConfig()
 	if err != nil {
 		log.Fatalf("Failed to initialize configuration: %v", err)
 	}
+
+	// Display configuration sources
+	log.Println("Configuration loaded from:")
+	log.Println("===========================")
+	for _, source := range sources {
+		log.Printf("  %-35s = %-20v [%s]", source.Key, source.Value, source.Source)
+	}
+	log.Println("===========================")
 
 	loadKnownGovees()
 
@@ -426,7 +356,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(config.ReloadInterval):
+			case <-time.After(parseDuration(config.Metrics.ReloadInterval)):
 				loadKnownGovees()
 			}
 		}
@@ -447,17 +377,11 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(config.RefreshInterval):
+			case <-time.After(parseDuration(config.Metrics.RefreshInterval)):
 				checkForStaleMetrics(config)
 			}
 		}
 	}()
-
-	// Load threshold configuration
-	thresholdConfig, err := initThresholdConfig()
-	if err != nil {
-		log.Fatalf("Error loading threshold configuration: %v", err)
-	}
 
 	// Serve static files with correct MIME types
 	mux := http.NewServeMux()
@@ -481,13 +405,13 @@ window.DASHBOARD_CONFIG = {
     HUMIDITY_HIGH_THRESHOLD: %v,
     BATTERY_LOW_THRESHOLD: %v
 };`,
-			thresholdConfig.TemperatureMin,
-			thresholdConfig.TemperatureMax,
-			thresholdConfig.TemperatureLowThreshold,
-			thresholdConfig.TemperatureHighThreshold,
-			thresholdConfig.HumidityLowThreshold,
-			thresholdConfig.HumidityHighThreshold,
-			thresholdConfig.BatteryLowThreshold,
+			config.Thresholds.Temperature.Min,
+			config.Thresholds.Temperature.Max,
+			config.Thresholds.Temperature.Low,
+			config.Thresholds.Temperature.High,
+			config.Thresholds.Humidity.Low,
+			config.Thresholds.Humidity.High,
+			config.Thresholds.Battery.Low,
 		)
 		w.Write([]byte(configJS))
 	})
@@ -498,7 +422,7 @@ window.DASHBOARD_CONFIG = {
 	mux.Handle("/", fs)
 
 	server := &http.Server{
-		Addr:    ":" + config.Port,
+		Addr:    ":" + config.Server.Port,
 		Handler: mux,
 	}
 
@@ -515,12 +439,12 @@ window.DASHBOARD_CONFIG = {
     Refresh Interval: %v
     Reload Interval:  %v
     Stale Threshold:  %v`,
-			config.Port,
-			config.ScanDuration,
-			config.ScanInterval,
-			config.RefreshInterval,
-			config.ReloadInterval,
-			config.StaleThreshold)
+			config.Server.Port,
+			config.Bluetooth.ScanDuration,
+			config.Bluetooth.ScanInterval,
+			config.Metrics.RefreshInterval,
+			config.Metrics.ReloadInterval,
+			config.Metrics.StaleThreshold)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
 			cancel() // Cancel context on server error

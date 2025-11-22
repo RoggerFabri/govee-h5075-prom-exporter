@@ -1,0 +1,183 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/spf13/viper"
+)
+
+// Config holds all configuration settings
+type Config struct {
+	Server struct {
+		Port string `mapstructure:"port"`
+	} `mapstructure:"server"`
+
+	Bluetooth struct {
+		ScanInterval string `mapstructure:"scanInterval"`
+		ScanDuration string `mapstructure:"scanDuration"`
+	} `mapstructure:"bluetooth"`
+
+	Metrics struct {
+		RefreshInterval string `mapstructure:"refreshInterval"`
+		StaleThreshold  string `mapstructure:"staleThreshold"`
+		ReloadInterval  string `mapstructure:"reloadInterval"`
+	} `mapstructure:"metrics"`
+
+	Thresholds struct {
+		Temperature struct {
+			Min  float64 `mapstructure:"min"`
+			Max  float64 `mapstructure:"max"`
+			Low  float64 `mapstructure:"low"`
+			High float64 `mapstructure:"high"`
+		} `mapstructure:"temperature"`
+
+		Humidity struct {
+			Low  float64 `mapstructure:"low"`
+			High float64 `mapstructure:"high"`
+		} `mapstructure:"humidity"`
+
+		Battery struct {
+			Low float64 `mapstructure:"low"`
+		} `mapstructure:"battery"`
+	} `mapstructure:"thresholds"`
+}
+
+// ConfigSource tracks where each config value came from
+type ConfigSource struct {
+	Key    string
+	Value  interface{}
+	Source string // "default", "config.yaml", or "environment"
+}
+
+// Default configuration values
+const (
+	defaultPort            = "8080"
+	defaultRefreshInterval = "30s"
+	defaultStaleThreshold  = "5m"
+	defaultScanInterval    = "15s"
+	defaultScanDuration    = "15s"
+	defaultReloadInterval  = "24h"
+)
+
+// Default threshold values
+const (
+	defaultTemperatureMin           = -20.0
+	defaultTemperatureMax           = 40.0
+	defaultTemperatureLowThreshold  = 0.0
+	defaultTemperatureHighThreshold = 35.0
+	defaultHumidityLowThreshold     = 30.0
+	defaultHumidityHighThreshold    = 70.0
+	defaultBatteryLowThreshold      = 5.0
+)
+
+// parseDuration is a helper function to parse duration strings
+func parseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		log.Printf("Warning: Invalid duration '%s', using 30s as default", s)
+		return 30 * time.Second
+	}
+	return d
+}
+
+// initConfig initializes configuration from defaults, config.yaml, and environment variables
+// Returns the config, a list of config sources for logging, and any error
+func initConfig() (*Config, []ConfigSource, error) {
+	// Step 1: Set default values
+	viper.SetDefault("server.port", defaultPort)
+	viper.SetDefault("bluetooth.scanInterval", defaultScanInterval)
+	viper.SetDefault("bluetooth.scanDuration", defaultScanDuration)
+	viper.SetDefault("metrics.refreshInterval", defaultRefreshInterval)
+	viper.SetDefault("metrics.staleThreshold", defaultStaleThreshold)
+	viper.SetDefault("metrics.reloadInterval", defaultReloadInterval)
+	viper.SetDefault("thresholds.temperature.min", defaultTemperatureMin)
+	viper.SetDefault("thresholds.temperature.max", defaultTemperatureMax)
+	viper.SetDefault("thresholds.temperature.low", defaultTemperatureLowThreshold)
+	viper.SetDefault("thresholds.temperature.high", defaultTemperatureHighThreshold)
+	viper.SetDefault("thresholds.humidity.low", defaultHumidityLowThreshold)
+	viper.SetDefault("thresholds.humidity.high", defaultHumidityHighThreshold)
+	viper.SetDefault("thresholds.battery.low", defaultBatteryLowThreshold)
+
+	// Track configuration sources
+	sources := []ConfigSource{}
+
+	// Step 2: Try to load config.yaml file
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+
+	configFileUsed := false
+	if err := viper.ReadInConfig(); err == nil {
+		configFileUsed = true
+		log.Printf("Loaded configuration from: %s", viper.ConfigFileUsed())
+	} else {
+		log.Printf("No config.yaml found, using defaults and environment variables")
+	}
+
+	// Step 3: Bind environment variables (highest priority)
+	viper.SetEnvPrefix("")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Bind specific environment variables with backward compatibility
+	viper.BindEnv("server.port", "PORT")
+	viper.BindEnv("bluetooth.scanInterval", "SCAN_INTERVAL")
+	viper.BindEnv("bluetooth.scanDuration", "SCAN_DURATION")
+	viper.BindEnv("metrics.refreshInterval", "REFRESH_INTERVAL")
+	viper.BindEnv("metrics.staleThreshold", "STALE_THRESHOLD")
+	viper.BindEnv("metrics.reloadInterval", "RELOAD_INTERVAL")
+	viper.BindEnv("thresholds.temperature.min", "TEMPERATURE_MIN")
+	viper.BindEnv("thresholds.temperature.max", "TEMPERATURE_MAX")
+	viper.BindEnv("thresholds.temperature.low", "TEMPERATURE_LOW_THRESHOLD")
+	viper.BindEnv("thresholds.temperature.high", "TEMPERATURE_HIGH_THRESHOLD")
+	viper.BindEnv("thresholds.humidity.low", "HUMIDITY_LOW_THRESHOLD")
+	viper.BindEnv("thresholds.humidity.high", "HUMIDITY_HIGH_THRESHOLD")
+	viper.BindEnv("thresholds.battery.low", "BATTERY_LOW_THRESHOLD")
+
+	// Unmarshal configuration
+	var config Config
+	if err := viper.Unmarshal(&config); err != nil {
+		return nil, nil, fmt.Errorf("unable to decode config into struct: %v", err)
+	}
+
+	// Determine source for each configuration value
+	configKeys := []struct {
+		key    string
+		value  interface{}
+		envVar string
+	}{
+		{"server.port", config.Server.Port, "PORT"},
+		{"bluetooth.scanInterval", config.Bluetooth.ScanInterval, "SCAN_INTERVAL"},
+		{"bluetooth.scanDuration", config.Bluetooth.ScanDuration, "SCAN_DURATION"},
+		{"metrics.refreshInterval", config.Metrics.RefreshInterval, "REFRESH_INTERVAL"},
+		{"metrics.staleThreshold", config.Metrics.StaleThreshold, "STALE_THRESHOLD"},
+		{"metrics.reloadInterval", config.Metrics.ReloadInterval, "RELOAD_INTERVAL"},
+		{"thresholds.temperature.min", config.Thresholds.Temperature.Min, "TEMPERATURE_MIN"},
+		{"thresholds.temperature.max", config.Thresholds.Temperature.Max, "TEMPERATURE_MAX"},
+		{"thresholds.temperature.low", config.Thresholds.Temperature.Low, "TEMPERATURE_LOW_THRESHOLD"},
+		{"thresholds.temperature.high", config.Thresholds.Temperature.High, "TEMPERATURE_HIGH_THRESHOLD"},
+		{"thresholds.humidity.low", config.Thresholds.Humidity.Low, "HUMIDITY_LOW_THRESHOLD"},
+		{"thresholds.humidity.high", config.Thresholds.Humidity.High, "HUMIDITY_HIGH_THRESHOLD"},
+		{"thresholds.battery.low", config.Thresholds.Battery.Low, "BATTERY_LOW_THRESHOLD"},
+	}
+
+	for _, item := range configKeys {
+		source := "default"
+		if os.Getenv(item.envVar) != "" {
+			source = "environment"
+		} else if configFileUsed && viper.InConfig(item.key) {
+			source = "config.yaml"
+		}
+		sources = append(sources, ConfigSource{
+			Key:    item.key,
+			Value:  item.value,
+			Source: source,
+		})
+	}
+
+	return &config, sources, nil
+}
