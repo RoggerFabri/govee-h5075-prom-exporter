@@ -12,7 +12,6 @@ const CONNECTION_TIMEOUT = 5000;
 
 // Connection state tracking
 let lastSuccessfulFetch = Date.now();
-let connectionState = 'connected';
 
 // Check connection status periodically
 setInterval(() => {
@@ -85,13 +84,6 @@ function normalizeTemp(temp) {
     return Math.max(0, Math.min(100, normalizedTemp));
 }
 
-function formatTrend(current, previous) {
-    if (!previous) return '';
-    const diff = current - previous;
-    if (Math.abs(diff) < 0.1) return 'stable';
-    return diff > 0 ? 'increasing' : 'decreasing';
-}
-
 function createMetricElement(label, value, unit, type, previousValue = null) {
     const percentage = type === 'temperature' ? normalizeTemp(value) : Math.max(0, value);
     const showBatteryWarning = type === 'battery' && value <= BATTERY_LOW_THRESHOLD;
@@ -102,8 +94,6 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
     const showHumidityWarning = showHighHumidityWarning || showLowHumidityWarning;
     const showTemperatureWarning = showFreezingWarning || showHotWarning;
     const showWarning = showBatteryWarning || showTemperatureWarning || showHumidityWarning;
-    const trend = formatTrend(value, previousValue);
-    const trendAnnouncement = trend ? `, ${trend} from previous reading` : '';
     const hasChanged = previousValue !== null && Math.abs(value - previousValue) >= 0.1;
     const changeClass = hasChanged ? 'changed' : '';
     
@@ -162,7 +152,7 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
         <div class="metric ${type}" data-value="${value}">
             <div class="metric-header">
                 <span>${label}</span>
-                <span class="metric-value ${changeClass}" aria-label="${label} is ${value}${unit}${trendAnnouncement}">
+                <span class="metric-value ${changeClass}" aria-label="${label} is ${value}${unit}">
                     ${value}${unit}
                     ${warningIcon}
                 </span>

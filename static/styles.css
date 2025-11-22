@@ -395,18 +395,6 @@ body {
     background: var(--gradient-primary);
 }
 
-.temperature .progress {
-    background: var(--gradient-primary);
-}
-
-.humidity .progress {
-    background: var(--gradient-primary);
-}
-
-.battery .progress {
-    background: var(--gradient-primary);
-}
-
 .refresh-progress {
     position: fixed;
     top: 0;
@@ -425,11 +413,6 @@ body {
     transform-origin: left;
     transition: transform 1s linear;
     opacity: 0.7;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
 
 @media (max-width: 600px) {
@@ -516,14 +499,6 @@ body {
     font-weight: 500;
 }
 
-.metric[data-trend="increasing"] .metric-value {
-    color: var(--success-color);
-}
-
-.metric[data-trend="decreasing"] .metric-value {
-    color: var(--warning-color);
-}
-
 @keyframes value-change {
     0% { background-color: transparent; }
     50% { background-color: var(--primary-color); opacity: 0.2; }
@@ -557,11 +532,6 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.unit-toggle:hover {
-    background-color: var(--primary-color);
-    color: white;
 }
 
 .connectivity-indicator {
