@@ -10,6 +10,8 @@ A **Prometheus exporter** for **Govee H5075 temperature & humidity sensors** tha
 - **Applies user-defined temperature & humidity offsets**.
 - **Exports metrics to Prometheus** on a configurable **HTTP port**.
 - **Removes stale metrics** if a device is inactive.
+- **Hot-reload configuration** - device changes are automatically detected without restart.
+- **Graceful shutdown** with proper context handling for all goroutines.
 
 ---
 
@@ -147,7 +149,7 @@ Devices are now configured in `config.yaml` (see above) instead of a separate `.
 - ✅ Hierarchical, readable YAML structure
 - ✅ Support for calibration offsets per device
 - ✅ Centralized configuration with all other settings
-- ✅ No need for periodic file reloading
+- ✅ **Hot-reload support** - changes to `config.yaml` are automatically detected and applied without restart
 
 ### **Example Device Configuration**
 
@@ -181,6 +183,7 @@ devices:
 - **Offsets** are optional and default to 0.0 if not specified
 - **Temperature offsets** are in °C
 - **Humidity offsets** are in %
+- **Hot-reload**: Changes to device configuration are automatically detected and applied within ~500ms without restarting the service
 
 ---
 
@@ -352,6 +355,18 @@ The dashboard automatically remembers your theme preference (dark/light) between
   ```
   hci0:   Type: Primary  Bus: USB
           UP RUNNING
+  ```
+
+### **❓ Configuration Changes Not Taking Effect**
+- Check the logs to verify hot-reload is working:
+  ```sh
+  docker logs -f govee-h5075-prom-exporter | grep "Config file"
+  ```
+- You should see: `Config file watcher: Monitoring config.yaml for changes`
+- After editing `config.yaml`, you should see: `Device configuration reloaded successfully`
+- If hot-reload is disabled, restart the container:
+  ```sh
+  docker-compose restart
   ```
 
 ---
