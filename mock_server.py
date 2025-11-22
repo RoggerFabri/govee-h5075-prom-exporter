@@ -12,7 +12,16 @@ devices = {
     "Bedroom": {"temperature": 21.0, "humidity": 48.0, "battery": 90},
     "Kitchen": {"temperature": 23.5, "humidity": 52.0, "battery": 75},
     "Office": {"temperature": 22.5, "humidity": 47.0, "battery": 95},
-    "Basement": {"temperature": 20.0, "humidity": 55.0, "battery": 80}
+    "Basement": {"temperature": 20.0, "humidity": 55.0, "battery": 80},
+    "Freezer": {"temperature": -18.0, "humidity": 35.0, "battery": 65},
+    "Garage": {"temperature": 15.0, "humidity": 60.0, "battery": 2},
+    # Edge case examples:
+    "Sauna": {"temperature": 38.0, "humidity": 25.0, "battery": 70},  # High temp warning
+    "Greenhouse": {"temperature": 28.0, "humidity": 85.0, "battery": 50},  # High humidity
+    "Server Room": {"temperature": 24.0, "humidity": 15.0, "battery": 60},  # Low humidity
+    "Outdoor Shed": {"temperature": -5.0, "humidity": 40.0, "battery": 3},  # Multiple warnings (freezing + low battery)
+    "Wine Cellar": {"temperature": 0.0, "humidity": 65.0, "battery": 55},  # Boundary: exactly 0°C
+    "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5}  # Boundary: exactly 5% battery
 }
 
 # Lock for thread-safe updates
@@ -22,15 +31,46 @@ def update_mock_data():
     """Update mock data with random variations periodically"""
     while True:
         with lock:
-            for device in devices.values():
-                # Random temperature changes (-0.5 to +0.5)
-                device["temperature"] = max(10, min(35, device["temperature"] + random.uniform(-0.5, 0.5)))
+            for name, device in devices.items():
+                # Different temperature ranges for different devices
+                if name == "Freezer":
+                    # Freezer temperature range: -25°C to -10°C
+                    device["temperature"] = max(-25, min(-10, device["temperature"] + random.uniform(-0.5, 0.5)))
+                elif name == "Sauna":
+                    # Sauna temperature range: 35°C to 40°C (high temp warning zone)
+                    device["temperature"] = max(35, min(40, device["temperature"] + random.uniform(-0.3, 0.3)))
+                elif name == "Outdoor Shed":
+                    # Outdoor Shed temperature range: -10°C to 0°C (cold/freezing)
+                    device["temperature"] = max(-10, min(0, device["temperature"] + random.uniform(-0.5, 0.5)))
+                elif name == "Wine Cellar":
+                    # Wine Cellar: keep at exactly 0°C (boundary test)
+                    device["temperature"] = max(-0.5, min(0.5, device["temperature"] + random.uniform(-0.1, 0.1)))
+                else:
+                    # Normal temperature range: 10°C to 35°C
+                    device["temperature"] = max(10, min(35, device["temperature"] + random.uniform(-0.5, 0.5)))
                 
-                # Random humidity changes (-2 to +2)
-                device["humidity"] = max(30, min(70, device["humidity"] + random.uniform(-2, 2)))
+                # Different humidity ranges for different devices
+                if name == "Greenhouse":
+                    # Greenhouse: high humidity 80-90%
+                    device["humidity"] = max(80, min(90, device["humidity"] + random.uniform(-1, 1)))
+                elif name == "Server Room":
+                    # Server Room: low humidity 10-20%
+                    device["humidity"] = max(10, min(20, device["humidity"] + random.uniform(-1, 1)))
+                elif name == "Sauna":
+                    # Sauna: low humidity 20-30%
+                    device["humidity"] = max(20, min(30, device["humidity"] + random.uniform(-1, 1)))
+                else:
+                    # Normal humidity range: 30-70%
+                    device["humidity"] = max(30, min(70, device["humidity"] + random.uniform(-2, 2)))
                 
-                # Slowly decrease battery, with random recharge events
-                if random.random() < 0.01:  # 1% chance to "recharge"
+                # Battery management with edge cases
+                if name in ["Garage", "Outdoor Shed"]:
+                    # Keep battery between 1-3% to show warning
+                    device["battery"] = max(1, min(3, device["battery"] + random.uniform(-0.1, 0.1)))
+                elif name == "Storage Unit":
+                    # Keep battery at exactly 5% (boundary test)
+                    device["battery"] = max(4.5, min(5.5, device["battery"] + random.uniform(-0.1, 0.1)))
+                elif random.random() < 0.01:  # 1% chance to "recharge"
                     device["battery"] = min(100, device["battery"] + random.randint(10, 30))
                 else:
                     device["battery"] = max(0, device["battery"] - random.uniform(0, 0.1))
@@ -83,11 +123,22 @@ UI: http://localhost:5000
 Metrics: http://localhost:5000/metrics
 
 Mock devices:
+Standard devices:
 - Living Room
 - Bedroom
 - Kitchen
 - Office
 - Basement
+
+Edge case examples:
+- Freezer (negative temperature: -18°C, blue snowflake warning)
+- Garage (low battery: 2%, orange triangle warning)
+- Sauna (high temperature: 38°C, red flame warning)
+- Greenhouse (high humidity: 85%, cyan droplet warning)
+- Server Room (low humidity: 15%)
+- Outdoor Shed (multiple warnings: freezing temp + low battery)
+- Wine Cellar (boundary test: 0°C)
+- Storage Unit (boundary test: 5% battery)
 
 Press Ctrl+C to stop
 """)

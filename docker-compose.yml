@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   govee-h5075-prom-exporter:
     build: .
