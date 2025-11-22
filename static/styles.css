@@ -247,8 +247,12 @@ body {
     color: #FF5722; /* Red/orange color for high temperatures */
 }
 
-.warning-icon.humidity-warning {
+.warning-icon.high-humidity-warning {
     color: #00BCD4; /* Cyan color for high humidity */
+}
+
+.warning-icon.low-humidity-warning {
+    color: #FFC107; /* Amber color for low humidity */
 }
 
 .warning-icon svg {

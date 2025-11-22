@@ -37,6 +37,8 @@ http://localhost:8080/metrics
 ## ⚙️ Configuration
 
 ### **🔹 Environment Variables**
+
+#### **Server Configuration**
 | Variable           | Default | Description |
 |-------------------|---------|-------------|
 | `PORT`            | `8080`  | The HTTP port to expose Prometheus metrics. |
@@ -46,6 +48,17 @@ http://localhost:8080/metrics
 | `STALE_THRESHOLD` | `5m`    | Time before inactive sensors are removed (duration format, e.g., 5m, 1h). |
 | `RELOAD_INTERVAL` | `24h`   | How often to reload the known devices file (duration format, e.g., 1h, 24h). |
 
+#### **Dashboard Warning Thresholds**
+| Variable                      | Default | Description |
+|------------------------------|---------|-------------|
+| `TEMPERATURE_MIN`            | `-20`   | Minimum temperature for display normalization (°C). |
+| `TEMPERATURE_MAX`            | `40`    | Maximum temperature for display normalization (°C). |
+| `TEMPERATURE_LOW_THRESHOLD`  | `0`     | Temperature below which low temperature warning is shown (°C). |
+| `TEMPERATURE_HIGH_THRESHOLD` | `35`    | Temperature above which high temperature warning is shown (°C). |
+| `HUMIDITY_LOW_THRESHOLD`     | `30`    | Humidity below which low humidity warning is shown (%). |
+| `HUMIDITY_HIGH_THRESHOLD`    | `70`    | Humidity above which high humidity warning is shown (%). |
+| `BATTERY_LOW_THRESHOLD`      | `5`     | Battery level at or below which low battery warning is shown (%). |
+
 Set custom values:
 ```sh
 export PORT=9090
@@ -54,6 +67,12 @@ export SCAN_DURATION=1m
 export REFRESH_INTERVAL=1m
 export STALE_THRESHOLD=10m
 export RELOAD_INTERVAL=12h
+# Optional: Customize warning thresholds
+export TEMPERATURE_LOW_THRESHOLD=0
+export TEMPERATURE_HIGH_THRESHOLD=35
+export HUMIDITY_LOW_THRESHOLD=30
+export HUMIDITY_HIGH_THRESHOLD=70
+export BATTERY_LOW_THRESHOLD=5
 docker-compose up -d
 ```
 
@@ -87,8 +106,6 @@ volumes:
 
 ### **📜 `docker-compose.yml`**
 ```yaml
-version: "3.9"
-
 services:
   govee-h5075-prom-exporter:
     build: .
@@ -107,6 +124,14 @@ services:
       - STALE_THRESHOLD=5m
       - RELOAD_INTERVAL=24h
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+      # Dashboard warning thresholds (optional)
+      - TEMPERATURE_MIN=-20
+      - TEMPERATURE_MAX=40
+      - TEMPERATURE_LOW_THRESHOLD=0
+      - TEMPERATURE_HIGH_THRESHOLD=35
+      - HUMIDITY_LOW_THRESHOLD=30
+      - HUMIDITY_HIGH_THRESHOLD=70
+      - BATTERY_LOW_THRESHOLD=5
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
       - ./.known_govees:/app/.known_govees:ro

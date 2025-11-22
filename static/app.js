@@ -1,7 +1,13 @@
-// Configuration
+// Configuration - Load from server or use defaults
+const CONFIG = window.DASHBOARD_CONFIG || {};
 const REFRESH_INTERVAL = 30000;
-const MAX_TEMPERATURE = 40;
-const MIN_TEMPERATURE = -20;
+const MAX_TEMPERATURE = CONFIG.TEMPERATURE_MAX || 40;
+const MIN_TEMPERATURE = CONFIG.TEMPERATURE_MIN || -20;
+const TEMPERATURE_LOW_THRESHOLD = CONFIG.TEMPERATURE_LOW_THRESHOLD !== undefined ? CONFIG.TEMPERATURE_LOW_THRESHOLD : 0;
+const TEMPERATURE_HIGH_THRESHOLD = CONFIG.TEMPERATURE_HIGH_THRESHOLD || 35;
+const HUMIDITY_LOW_THRESHOLD = CONFIG.HUMIDITY_LOW_THRESHOLD || 30;
+const HUMIDITY_HIGH_THRESHOLD = CONFIG.HUMIDITY_HIGH_THRESHOLD || 70;
+const BATTERY_LOW_THRESHOLD = CONFIG.BATTERY_LOW_THRESHOLD || 5;
 const CONNECTION_TIMEOUT = 5000;
 
 // Connection state tracking
@@ -88,10 +94,12 @@ function formatTrend(current, previous) {
 
 function createMetricElement(label, value, unit, type, previousValue = null) {
     const percentage = type === 'temperature' ? normalizeTemp(value) : Math.max(0, value);
-    const showBatteryWarning = type === 'battery' && value <= 5;
-    const showFreezingWarning = type === 'temperature' && value < 0;
-    const showHotWarning = type === 'temperature' && value > 35;
-    const showHumidityWarning = type === 'humidity' && value > 70;
+    const showBatteryWarning = type === 'battery' && value <= BATTERY_LOW_THRESHOLD;
+    const showFreezingWarning = type === 'temperature' && value < TEMPERATURE_LOW_THRESHOLD;
+    const showHotWarning = type === 'temperature' && value > TEMPERATURE_HIGH_THRESHOLD;
+    const showHighHumidityWarning = type === 'humidity' && value > HUMIDITY_HIGH_THRESHOLD;
+    const showLowHumidityWarning = type === 'humidity' && value < HUMIDITY_LOW_THRESHOLD;
+    const showHumidityWarning = showHighHumidityWarning || showLowHumidityWarning;
     const showTemperatureWarning = showFreezingWarning || showHotWarning;
     const showWarning = showBatteryWarning || showTemperatureWarning || showHumidityWarning;
     const trend = formatTrend(value, previousValue);
@@ -130,12 +138,21 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
                 </svg>
             </span>
         `;
-    } else if (showHumidityWarning) {
+    } else if (showHighHumidityWarning) {
         warningLabel = 'High Humidity Warning';
         warningIcon = `
-            <span class="warning-icon humidity-warning" role="alert" aria-label="${warningLabel}">
+            <span class="warning-icon high-humidity-warning" role="alert" aria-label="${warningLabel}">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0zm0 15.93A5.5 5.5 0 0 1 6.5 13c0-1.48.58-2.92 1.66-4l.01-.01L12 5.27l3.83 3.82.01.01c1.08 1.08 1.66 2.52 1.66 4a5.5 5.5 0 0 1-5.5 5.62z"/>
+                </svg>
+            </span>
+        `;
+    } else if (showLowHumidityWarning) {
+        warningLabel = 'Low Humidity Warning';
+        warningIcon = `
+            <span class="warning-icon low-humidity-warning" role="alert" aria-label="${warningLabel}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0zm0 15.93A5.5 5.5 0 0 1 6.5 13c0-1.48.58-2.92 1.66-4l.01-.01L12 5.27l3.83 3.82.01.01c1.08 1.08 1.66 2.52 1.66 4a5.5 5.5 0 0 1-5.5 5.62zM9 12c0 1.66 1.34 3 3 3s3-1.34 3-3H9z"/>
                 </svg>
             </span>
         `;

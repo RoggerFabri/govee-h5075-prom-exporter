@@ -13,6 +13,14 @@ services:
       - REFRESH_INTERVAL=30
       - STALE_THRESHOLD=300
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+      # Dashboard warning thresholds (optional)
+      - TEMPERATURE_MIN=-20
+      - TEMPERATURE_MAX=40
+      - TEMPERATURE_LOW_THRESHOLD=0
+      - TEMPERATURE_HIGH_THRESHOLD=35
+      - HUMIDITY_LOW_THRESHOLD=30
+      - HUMIDITY_HIGH_THRESHOLD=70
+      - BATTERY_LOW_THRESHOLD=5
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # Mount DBus socket
       - ./.known_govees:/app/.known_govees:ro # Mount .known_govees as read-only
