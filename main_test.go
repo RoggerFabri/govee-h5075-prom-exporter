@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,37 +13,45 @@ import (
 )
 
 func TestLoadKnownGovees(t *testing.T) {
-	// Create a temporary test file
-	content := `A4:C1:38:12:34:56 Living_Room 1.5 -2.0
-B4:C1:38:12:34:57 Bedroom -0.5 1.0
-Invalid Line
-C4:C1:38:12:34:58 Kitchen invalid offset
-`
-	tmpfile, err := os.CreateTemp("", "known_govees")
-	if err != nil {
-		t.Fatal(err)
+	// Create a test config with devices
+	testConfig := &Config{}
+	testConfig.Devices = []Device{
+		{
+			MAC:  "A4:C1:38:12:34:56",
+			Name: "Living_Room",
+			Offsets: struct {
+				Temperature float64 `mapstructure:"temperature"`
+				Humidity    float64 `mapstructure:"humidity"`
+			}{
+				Temperature: 1.5,
+				Humidity:    -2.0,
+			},
+		},
+		{
+			MAC:  "b4:c1:38:12:34:57", // Test lowercase MAC normalization
+			Name: "Bedroom",
+			Offsets: struct {
+				Temperature float64 `mapstructure:"temperature"`
+				Humidity    float64 `mapstructure:"humidity"`
+			}{
+				Temperature: -0.5,
+				Humidity:    1.0,
+			},
+		},
+		{
+			MAC:  "", // Invalid: missing MAC
+			Name: "Invalid",
+		},
+		{
+			MAC:  "C4:C1:38:12:34:58",
+			Name: "", // Invalid: missing Name
+		},
 	}
-	defer os.Remove(tmpfile.Name())
 
-	if _, err := tmpfile.Write([]byte(content)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatal(err)
-	}
+	// Test loading the devices
+	loadKnownGovees(testConfig)
 
-	// Temporarily replace the filename constant
-	os.Rename(".known_govees", ".known_govees.bak")
-	defer os.Rename(".known_govees.bak", ".known_govees")
-
-	if err := os.Symlink(tmpfile.Name(), ".known_govees"); err != nil {
-		t.Fatal(err)
-	}
-
-	// Test loading the file
-	loadKnownGovees()
-
-	// Verify the contents
+	// Verify the contents (only valid devices should be loaded)
 	expected := map[string]KnownGovee{
 		"A4:C1:38:12:34:56": {Name: "Living_Room", TempOffset: 1.5, HumidityOffset: -2.0},
 		"B4:C1:38:12:34:57": {Name: "Bedroom", TempOffset: -0.5, HumidityOffset: 1.0},

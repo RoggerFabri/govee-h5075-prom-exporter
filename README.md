@@ -61,20 +61,39 @@ bluetooth:
 metrics:
   refreshInterval: 30s
   staleThreshold: 5m
-  reloadInterval: 24h
 
 # Dashboard warning thresholds
 thresholds:
   temperature:
-    min: -20
-    max: 40
-    low: 0
-    high: 35
+    min: -20    # Minimum for display normalization
+    max: 40     # Maximum for display normalization
+    low: 0      # Show warning below this
+    high: 35    # Show warning above this
   humidity:
-    low: 30
-    high: 70
+    low: 30     # Show warning below this
+    high: 70    # Show warning above this
   battery:
-    low: 5
+    low: 5      # Show warning at or below this
+
+# Known Govee H5075 devices
+devices:
+  - mac: "A4:C1:38:E0:0F:54"
+    name: "Office"
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
+  
+  - mac: "A4:C1:38:8A:F6:2A"
+    name: "Attic"
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
+  
+  - mac: "A4:C1:38:D3:D2:FC"
+    name: "Ensuite"
+    offsets:
+      temperature: -0.5  # Sensor reads 0.5°C too high
+      humidity: 1.0      # Sensor reads 1% too low
 ```
 
 ### **🔹 Environment Variables**
@@ -89,7 +108,6 @@ Environment variables override config.yaml values:
 | `SCAN_DURATION`   | `15s`   | How long each active scan should run (duration format, e.g., 15s, 1m, 1h). |
 | `REFRESH_INTERVAL`| `30s`   | How often to check for stale metrics (duration format, e.g., 30s, 1m, 1h). |
 | `STALE_THRESHOLD` | `5m`    | Time before inactive sensors are removed (duration format, e.g., 5m, 1h). |
-| `RELOAD_INTERVAL` | `24h`   | How often to reload the known devices file (duration format, e.g., 1h, 24h). |
 
 #### **Dashboard Warning Thresholds**
 | Variable                      | Default | Description |
@@ -109,7 +127,6 @@ export SCAN_INTERVAL=30s
 export SCAN_DURATION=1m
 export REFRESH_INTERVAL=1m
 export STALE_THRESHOLD=10m
-export RELOAD_INTERVAL=12h
 # Optional: Customize warning thresholds
 export TEMPERATURE_LOW_THRESHOLD=0
 export TEMPERATURE_HIGH_THRESHOLD=35
@@ -123,25 +140,34 @@ docker-compose up -d
 
 ## 📜 Configuring Known Devices
 
-### **1️⃣ Create `.known_govees` File**
-Inside the project directory, create `.known_govees`:
-```sh
-touch .known_govees
-```
-Add **your sensors** (MAC Address, Name, Temp Offset, Humidity Offset):
-```
-A4:C1:38:E0:0F:2A Office 0.0 0.0
-A4:C1:38:8A:F6:54 Attic 0.0 0.0
-A4:C1:38:D3:D2:FC Ensuite -0.5 1.0
-A4:C1:38:C1:A0:C1 HotPress 0.3 -0.7
+Devices are now configured in `config.yaml` (see above) instead of a separate `.known_govees` file. This provides:
+- ✅ Hierarchical, readable YAML structure
+- ✅ Support for calibration offsets per device
+- ✅ Centralized configuration with all other settings
+- ✅ No need for periodic file reloading
+
+### **Example Device Configuration**
+
+```yaml
+devices:
+  - mac: "A4:C1:38:E0:0F:2A"
+    name: "Office"
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
+  
+  - mac: "A4:C1:38:D3:D2:FC"
+    name: "Ensuite"
+    offsets:
+      temperature: -0.5  # Compensate for sensor reading too high
+      humidity: 1.0      # Compensate for sensor reading too low
 ```
 
-### **2️⃣ Mount the File in Docker**
-Modify `docker-compose.yaml`:
-```yaml
-volumes:
-  - ./.known_govees:/app/.known_govees:ro
-```
+**Notes:**
+- **MAC addresses** are case-insensitive and will be normalized to uppercase
+- **Offsets** are optional and default to 0.0 if not specified
+- **Temperature offsets** are in °C
+- **Humidity offsets** are in %
 
 ---
 
@@ -165,9 +191,8 @@ services:
       - SCAN_DURATION=15s
       - REFRESH_INTERVAL=30s
       - STALE_THRESHOLD=5m
-      - RELOAD_INTERVAL=24h
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
-      # Dashboard warning thresholds (optional)
+      # Dashboard warning thresholds (optional - can override config.yaml)
       - TEMPERATURE_MIN=-20
       - TEMPERATURE_MAX=40
       - TEMPERATURE_LOW_THRESHOLD=0
@@ -177,8 +202,7 @@ services:
       - BATTERY_LOW_THRESHOLD=5
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
-      - ./.known_govees:/app/.known_govees:ro
-      - ./config.yaml:/app/config.yaml:ro  # Optional: comment out to use env vars only
+      - ./config.yaml:/app/config.yaml:ro  # Mount config file with device list
     restart: unless-stopped
 ```
 

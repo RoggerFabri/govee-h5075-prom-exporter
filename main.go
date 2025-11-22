@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -71,43 +69,27 @@ func init() {
 	prometheus.MustRegister(batteryGauge)
 }
 
-func loadKnownGovees() {
-	knownFile := ".known_govees"
-	file, err := os.Open(knownFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.Printf("Warning: Known devices file %s not found. No devices will be monitored.", knownFile)
-			return
-		}
-		log.Fatalf("Error opening known devices file %s: %v", knownFile, err)
+// loadKnownGovees loads device configuration from config into the knownGovees map
+func loadKnownGovees(config *Config) {
+	if config == nil {
+		log.Println("Warning: No configuration provided. No devices will be monitored.")
+		return
 	}
-	defer file.Close()
 
 	newMap := make(map[string]KnownGovee)
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 4 {
-			log.Printf("Skipping invalid line in known devices file: %s", scanner.Text())
+	for _, device := range config.Devices {
+		if device.MAC == "" || device.Name == "" {
+			log.Printf("Skipping device with missing MAC or name: %+v", device)
 			continue
 		}
 
-		mac := strings.ToUpper(fields[0])
-		name := fields[1]
-		tempOffset, err1 := strconv.ParseFloat(fields[2], 64)
-		humidityOffset, err2 := strconv.ParseFloat(fields[3], 64)
-
-		if err1 != nil || err2 != nil {
-			log.Printf("Skipping line with invalid offsets in known devices file: %s", scanner.Text())
-			continue
+		mac := strings.ToUpper(device.MAC)
+		newMap[mac] = KnownGovee{
+			Name:           device.Name,
+			TempOffset:     device.Offsets.Temperature,
+			HumidityOffset: device.Offsets.Humidity,
 		}
-
-		newMap[mac] = KnownGovee{Name: name, TempOffset: tempOffset, HumidityOffset: humidityOffset}
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Printf("Error reading known devices file: %v", err)
 	}
 
 	mutex.Lock()
@@ -115,13 +97,17 @@ func loadKnownGovees() {
 	mutex.Unlock()
 
 	// Format and log the known devices
-	log.Println("Loaded known Govee H5075 devices:")
-	for mac, device := range knownGovees {
-		log.Printf("  %-17s -> Name: %-15s TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
-			mac,
-			device.Name,
-			device.TempOffset,
-			device.HumidityOffset)
+	if len(knownGovees) == 0 {
+		log.Println("Warning: No devices configured. Add devices to config.yaml to start monitoring.")
+	} else {
+		log.Println("Loaded known Govee H5075 devices:")
+		for mac, device := range knownGovees {
+			log.Printf("  %-17s -> Name: %-15s TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
+				mac,
+				device.Name,
+				device.TempOffset,
+				device.HumidityOffset)
+		}
 	}
 }
 
@@ -260,7 +246,7 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	// Extract battery level (last byte)
 	batteryLevel := int(data[4])
 
-	// Apply offsets from .known_govees
+	// Apply calibration offsets from configuration
 	temperature += govee.TempOffset
 	humidity += govee.HumidityOffset
 
@@ -339,7 +325,8 @@ func main() {
 	}
 	log.Println("===========================")
 
-	loadKnownGovees()
+	// Load devices from configuration
+	loadKnownGovees(config)
 
 	// Create a context that will be canceled on shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -347,20 +334,6 @@ func main() {
 
 	// Create a WaitGroup to track all goroutines
 	var wg sync.WaitGroup
-
-	// Start the known govees reload goroutine
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(parseDuration(config.Metrics.ReloadInterval)):
-				loadKnownGovees()
-			}
-		}
-	}()
 
 	// Start the BLE scanner
 	wg.Add(1)
@@ -437,13 +410,11 @@ window.DASHBOARD_CONFIG = {
     Scan Duration:    %v
     Scan Interval:    %v
     Refresh Interval: %v
-    Reload Interval:  %v
     Stale Threshold:  %v`,
 			config.Server.Port,
 			config.Bluetooth.ScanDuration,
 			config.Bluetooth.ScanInterval,
 			config.Metrics.RefreshInterval,
-			config.Metrics.ReloadInterval,
 			config.Metrics.StaleThreshold)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)

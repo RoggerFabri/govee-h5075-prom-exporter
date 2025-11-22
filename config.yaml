@@ -14,7 +14,6 @@ bluetooth:
 metrics:
   refreshInterval: 30s          # How often to check for stale metrics
   staleThreshold: 5m            # Time before inactive sensors are removed
-  reloadInterval: 24h           # How often to reload known devices file
 
 # Dashboard warning thresholds
 thresholds:
@@ -30,4 +29,32 @@ thresholds:
   
   battery:
     low: 5                      # Battery level at or below which warning is shown (%)
+
+# Known Govee H5075 devices
+# Configure your sensors here with their MAC addresses and optional calibration offsets
+devices:
+  - mac: "A4:C1:38:E0:0F:54"
+    name: "Office"
+    offsets:
+      temperature: 0.0          # Temperature offset in °C (positive or negative)
+      humidity: 0.0             # Humidity offset in % (positive or negative)
+  
+  - mac: "A4:C1:38:8A:F6:2A"
+    name: "LivingRoom"
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
+  
+  - mac: "A4:C1:38:D3:A0:C1"
+    name: "Kitchen"
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
+
+# Example device with calibration offsets:
+# - mac: "A4:C1:38:12:34:56"
+#   name: "Bedroom"
+#   offsets:
+#     temperature: -0.5         # Sensor reads 0.5°C too high, so subtract 0.5
+#     humidity: 2.0             # Sensor reads 2% too low, so add 2
 
