@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go application with additional security flags
-RUN go build -ldflags="-w -s -extldflags=-static" -o govee_exporter main.go
+RUN go build -ldflags="-w -s -extldflags=-static" -o govee_exporter .
 
 # Stage 2: Create a minimal runtime container
 FROM alpine:3.22
