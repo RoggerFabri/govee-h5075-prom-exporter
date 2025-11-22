@@ -46,27 +46,41 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.4'
+          cache: true
+      
+      - name: Build ARM64 binary with native Go cross-compilation
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+          go build -v -trimpath -p 16 -ldflags="-w -s" -o govee_exporter .
+      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and Push
+      
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           push: true
           context: .
+          file: ./Dockerfile.prebuilt
+          platforms: linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
-          build-args: |
-            BUILDKIT_PROGRESS=plain
           tags: |
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-latest
             ${{ secrets.DOCKERHUB_SLUG }}/govee-h5075-prom-exporter:arm64v8-${{github.run_number}}
-          platforms: linux/arm64
