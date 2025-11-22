@@ -201,6 +201,14 @@ body {
     opacity: 0.5;
 }
 
+.group-placeholder {
+    background-color: rgba(var(--border-color-rgb), 0.2);
+    border: 2px dashed var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    transition: all 0.2s ease;
+}
+
 .group-drag-handle {
     width: 18px;
     height: 24px;
@@ -211,6 +219,9 @@ body {
     transition: opacity 0.2s ease;
     flex-shrink: 0;
     cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
 }
 
 .group-drag-handle:hover {
@@ -219,6 +230,14 @@ body {
 
 .group-drag-handle:active {
     cursor: grabbing;
+    opacity: 1;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile/touch devices */
+    .group-drag-handle {
+        opacity: 0.6;
+    }
 }
 
 .group-header {
