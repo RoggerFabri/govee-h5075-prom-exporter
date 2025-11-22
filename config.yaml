@@ -31,27 +31,30 @@ thresholds:
     low: 5                      # Battery level at or below which warning is shown (%)
 
 # Known Govee H5075 devices
-# Configure your sensors here with their MAC addresses and optional calibration offsets
+# Configure your sensors here with their MAC addresses, optional groups, and optional calibration offsets
 devices:
   - mac: "A4:C1:38:E0:0F:54"
     name: "Office"
+    group: "Upstairs"           # Optional: Group devices (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
     offsets:
       temperature: 0.0          # Temperature offset in °C (positive or negative)
       humidity: 0.0             # Humidity offset in % (positive or negative)
   
   - mac: "A4:C1:38:8A:F6:2A"
     name: "LivingRoom"
+    group: "Downstairs"
     offsets:
       temperature: 0.0
       humidity: 0.0
   
   - mac: "A4:C1:38:D3:A0:C1"
     name: "Kitchen"
+    group: "Downstairs"
     offsets:
       temperature: 0.0
       humidity: 0.0
 
-# Example device with calibration offsets:
+# Example device with calibration offsets and without a group:
 # - mac: "A4:C1:38:12:34:56"
 #   name: "Bedroom"
 #   offsets:

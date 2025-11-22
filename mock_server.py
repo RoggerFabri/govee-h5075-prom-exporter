@@ -18,22 +18,22 @@ THRESHOLDS = {
     'BATTERY_LOW_THRESHOLD': float(os.getenv('BATTERY_LOW_THRESHOLD', '5'))
 }
 
-# Mock devices with initial values
+# Mock devices with initial values and groups
 devices = {
-    "Living Room": {"temperature": 22.0, "humidity": 45.0, "battery": 85},
-    "Bedroom": {"temperature": 21.0, "humidity": 48.0, "battery": 90},
-    "Kitchen": {"temperature": 23.5, "humidity": 52.0, "battery": 75},
-    "Office": {"temperature": 22.5, "humidity": 47.0, "battery": 95},
-    "Basement": {"temperature": 20.0, "humidity": 55.0, "battery": 80},
-    "Freezer": {"temperature": -18.0, "humidity": 35.0, "battery": 65},
-    "Garage": {"temperature": 15.0, "humidity": 60.0, "battery": 2},
+    "Living Room": {"temperature": 22.0, "humidity": 45.0, "battery": 85, "group": "Downstairs"},
+    "Bedroom": {"temperature": 21.0, "humidity": 48.0, "battery": 90, "group": "Upstairs"},
+    "Kitchen": {"temperature": 23.5, "humidity": 52.0, "battery": 75, "group": "Downstairs"},
+    "Office": {"temperature": 22.5, "humidity": 47.0, "battery": 95, "group": "Upstairs"},
+    "Basement": {"temperature": 20.0, "humidity": 55.0, "battery": 80, "group": "Basement"},
+    "Freezer": {"temperature": -18.0, "humidity": 35.0, "battery": 65, "group": "Kitchen"},
+    "Garage": {"temperature": 15.0, "humidity": 60.0, "battery": 2, "group": "Outdoor"},
     # Edge case examples:
-    "Sauna": {"temperature": 38.0, "humidity": 25.0, "battery": 70},  # High temp warning
-    "Greenhouse": {"temperature": 28.0, "humidity": 85.0, "battery": 50},  # High humidity
-    "Server Room": {"temperature": 24.0, "humidity": 15.0, "battery": 60},  # Low humidity
-    "Outdoor Shed": {"temperature": -5.0, "humidity": 40.0, "battery": 3},  # Multiple warnings (freezing + low battery)
-    "Wine Cellar": {"temperature": 0.0, "humidity": 65.0, "battery": 55},  # Boundary: exactly 0°C
-    "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5}  # Boundary: exactly 5% battery
+    "Sauna": {"temperature": 38.0, "humidity": 25.0, "battery": 70, "group": "Basement"},  # High temp warning
+    "Greenhouse": {"temperature": 28.0, "humidity": 85.0, "battery": 50, "group": "Outdoor"},  # High humidity
+    "Server Room": {"temperature": 24.0, "humidity": 15.0, "battery": 60, "group": "Basement"},  # Low humidity
+    "Outdoor Shed": {"temperature": -5.0, "humidity": 40.0, "battery": 3, "group": "Outdoor"},  # Multiple warnings (freezing + low battery)
+    "Wine Cellar": {"temperature": 0.0, "humidity": 65.0, "battery": 55, "group": "Basement"},  # Boundary: exactly 0°C
+    "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5, "group": "Outdoor"}  # Boundary: exactly 5% battery
 }
 
 # Lock for thread-safe updates
@@ -105,7 +105,13 @@ def metrics():
 
 @app.route('/config.js')
 def config_js():
-    """Serve threshold configuration as JavaScript"""
+    """Serve threshold configuration and device groups as JavaScript"""
+    import json
+    
+    # Build device groups map
+    with lock:
+        device_groups = {name: data.get("group", "") for name, data in devices.items()}
+    
     config_content = f'''// Dashboard configuration from environment variables
 window.DASHBOARD_CONFIG = {{
     TEMPERATURE_MIN: {THRESHOLDS['TEMPERATURE_MIN']},
@@ -114,7 +120,8 @@ window.DASHBOARD_CONFIG = {{
     TEMPERATURE_HIGH_THRESHOLD: {THRESHOLDS['TEMPERATURE_HIGH_THRESHOLD']},
     HUMIDITY_LOW_THRESHOLD: {THRESHOLDS['HUMIDITY_LOW_THRESHOLD']},
     HUMIDITY_HIGH_THRESHOLD: {THRESHOLDS['HUMIDITY_HIGH_THRESHOLD']},
-    BATTERY_LOW_THRESHOLD: {THRESHOLDS['BATTERY_LOW_THRESHOLD']}
+    BATTERY_LOW_THRESHOLD: {THRESHOLDS['BATTERY_LOW_THRESHOLD']},
+    DEVICE_GROUPS: {json.dumps(device_groups)}
 }};'''
     return Response(config_content, mimetype='application/javascript')
 

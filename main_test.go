@@ -17,8 +17,9 @@ func TestLoadKnownGovees(t *testing.T) {
 	testConfig := &Config{}
 	testConfig.Devices = []Device{
 		{
-			MAC:  "A4:C1:38:12:34:56",
-			Name: "Living_Room",
+			MAC:   "A4:C1:38:12:34:56",
+			Name:  "Living_Room",
+			Group: "Downstairs",
 			Offsets: struct {
 				Temperature float64 `mapstructure:"temperature"`
 				Humidity    float64 `mapstructure:"humidity"`
@@ -28,8 +29,9 @@ func TestLoadKnownGovees(t *testing.T) {
 			},
 		},
 		{
-			MAC:  "b4:c1:38:12:34:57", // Test lowercase MAC normalization
-			Name: "Bedroom",
+			MAC:   "b4:c1:38:12:34:57", // Test lowercase MAC normalization
+			Name:  "Bedroom",
+			Group: "Upstairs",
 			Offsets: struct {
 				Temperature float64 `mapstructure:"temperature"`
 				Humidity    float64 `mapstructure:"humidity"`
@@ -53,8 +55,8 @@ func TestLoadKnownGovees(t *testing.T) {
 
 	// Verify the contents (only valid devices should be loaded)
 	expected := map[string]KnownGovee{
-		"A4:C1:38:12:34:56": {Name: "Living_Room", TempOffset: 1.5, HumidityOffset: -2.0},
-		"B4:C1:38:12:34:57": {Name: "Bedroom", TempOffset: -0.5, HumidityOffset: 1.0},
+		"A4:C1:38:12:34:56": {Name: "Living_Room", Group: "Downstairs", TempOffset: 1.5, HumidityOffset: -2.0},
+		"B4:C1:38:12:34:57": {Name: "Bedroom", Group: "Upstairs", TempOffset: -0.5, HumidityOffset: 1.0},
 	}
 
 	mutex.Lock()
@@ -70,7 +72,7 @@ func TestLoadKnownGovees(t *testing.T) {
 			t.Errorf("device %s not found", mac)
 			continue
 		}
-		if got.Name != want.Name || got.TempOffset != want.TempOffset || got.HumidityOffset != want.HumidityOffset {
+		if got.Name != want.Name || got.Group != want.Group || got.TempOffset != want.TempOffset || got.HumidityOffset != want.HumidityOffset {
 			t.Errorf("device %s: got %+v, want %+v", mac, got, want)
 		}
 	}

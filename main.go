@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -45,6 +46,7 @@ var (
 
 type KnownGovee struct {
 	Name           string
+	Group          string
 	TempOffset     float64
 	HumidityOffset float64
 }
@@ -87,6 +89,7 @@ func loadKnownGovees(config *Config) {
 		mac := strings.ToUpper(device.MAC)
 		newMap[mac] = KnownGovee{
 			Name:           device.Name,
+			Group:          device.Group,
 			TempOffset:     device.Offsets.Temperature,
 			HumidityOffset: device.Offsets.Humidity,
 		}
@@ -102,9 +105,14 @@ func loadKnownGovees(config *Config) {
 	} else {
 		log.Println("Loaded known Govee H5075 devices:")
 		for mac, device := range knownGovees {
-			log.Printf("  %-17s -> Name: %-15s TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
+			groupInfo := ""
+			if device.Group != "" {
+				groupInfo = fmt.Sprintf(" [%s]", device.Group)
+			}
+			log.Printf("  %-17s -> Name: %-15s%s  TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
 				mac,
 				device.Name,
+				groupInfo,
 				device.TempOffset,
 				device.HumidityOffset)
 		}
@@ -368,6 +376,22 @@ func main() {
 	mux.HandleFunc("/config.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Header().Set("Cache-Control", "no-cache")
+		
+		// Build device groups map
+		mutex.Lock()
+		deviceGroups := make(map[string]string)
+		for _, device := range knownGovees {
+			deviceGroups[device.Name] = device.Group
+		}
+		mutex.Unlock()
+		
+		// Convert to JSON securely using encoding/json
+		deviceGroupsJSON, err := json.Marshal(deviceGroups)
+		if err != nil {
+			log.Printf("Error marshaling device groups: %v", err)
+			deviceGroupsJSON = []byte("{}")
+		}
+		
 		configJS := fmt.Sprintf(`// Dashboard configuration from environment variables
 window.DASHBOARD_CONFIG = {
     TEMPERATURE_MIN: %v,
@@ -376,7 +400,8 @@ window.DASHBOARD_CONFIG = {
     TEMPERATURE_HIGH_THRESHOLD: %v,
     HUMIDITY_LOW_THRESHOLD: %v,
     HUMIDITY_HIGH_THRESHOLD: %v,
-    BATTERY_LOW_THRESHOLD: %v
+    BATTERY_LOW_THRESHOLD: %v,
+    DEVICE_GROUPS: %s
 };`,
 			config.Thresholds.Temperature.Min,
 			config.Thresholds.Temperature.Max,
@@ -385,6 +410,7 @@ window.DASHBOARD_CONFIG = {
 			config.Thresholds.Humidity.Low,
 			config.Thresholds.Humidity.High,
 			config.Thresholds.Battery.Low,
+			string(deviceGroupsJSON),
 		)
 		w.Write([]byte(configJS))
 	})

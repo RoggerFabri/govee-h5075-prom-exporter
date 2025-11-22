@@ -79,18 +79,21 @@ thresholds:
 devices:
   - mac: "A4:C1:38:E0:0F:54"
     name: "Office"
+    group: "Upstairs"    # Optional: Group devices for organization
     offsets:
       temperature: 0.0
       humidity: 0.0
   
   - mac: "A4:C1:38:8A:F6:2A"
     name: "Attic"
+    group: "Upstairs"
     offsets:
       temperature: 0.0
       humidity: 0.0
   
   - mac: "A4:C1:38:D3:D2:FC"
     name: "Ensuite"
+    group: "Downstairs"
     offsets:
       temperature: -0.5  # Sensor reads 0.5°C too high
       humidity: 1.0      # Sensor reads 1% too low
@@ -152,19 +155,29 @@ Devices are now configured in `config.yaml` (see above) instead of a separate `.
 devices:
   - mac: "A4:C1:38:E0:0F:2A"
     name: "Office"
+    group: "Upstairs"    # Optional: Group for organization
     offsets:
       temperature: 0.0
       humidity: 0.0
   
   - mac: "A4:C1:38:D3:D2:FC"
     name: "Ensuite"
+    group: "Downstairs"
     offsets:
       temperature: -0.5  # Compensate for sensor reading too high
       humidity: 1.0      # Compensate for sensor reading too low
+  
+  - mac: "A4:C1:38:12:34:56"
+    name: "Garage"
+    group: "Outdoor"     # Example: Outdoor grouping
+    offsets:
+      temperature: 0.0
+      humidity: 0.0
 ```
 
 **Notes:**
 - **MAC addresses** are case-insensitive and will be normalized to uppercase
+- **Group** is optional - use it to organize devices (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor", "Basement")
 - **Offsets** are optional and default to 0.0 if not specified
 - **Temperature offsets** are in °C
 - **Humidity offsets** are in %
