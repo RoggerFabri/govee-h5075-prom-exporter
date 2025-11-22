@@ -1,0 +1,33 @@
+# Govee H5075 Prometheus Exporter Configuration
+# This file provides default configuration values that can be overridden by environment variables
+
+# Server configuration
+server:
+  port: 8080                    # HTTP port for metrics and dashboard
+
+# Bluetooth scanning configuration
+bluetooth:
+  scanInterval: 15s             # How often to scan for BLE devices
+  scanDuration: 15s             # How long each scan should run
+  
+# Metrics management
+metrics:
+  refreshInterval: 30s          # How often to check for stale metrics
+  staleThreshold: 5m            # Time before inactive sensors are removed
+  reloadInterval: 24h           # How often to reload known devices file
+
+# Dashboard warning thresholds
+thresholds:
+  temperature:
+    min: -20                    # Minimum temperature for display normalization (°C)
+    max: 40                     # Maximum temperature for display normalization (°C)
+    low: 0                      # Temperature below which warning is shown (°C)
+    high: 35                    # Temperature above which warning is shown (°C)
+  
+  humidity:
+    low: 30                     # Humidity below which warning is shown (%)
+    high: 70                    # Humidity above which warning is shown (%)
+  
+  battery:
+    low: 5                      # Battery level at or below which warning is shown (%)
+

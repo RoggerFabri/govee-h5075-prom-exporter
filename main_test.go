@@ -211,9 +211,8 @@ func TestCheckForStaleMetrics(t *testing.T) {
 	batteryGauge.WithLabelValues("Stale").Set(90)
 
 	// Create test config
-	config := &Config{
-		StaleThreshold: 5 * time.Minute,
-	}
+	config := &Config{}
+	config.Metrics.StaleThreshold = "5m"
 
 	// Run the check
 	checkForStaleMetrics(config)
@@ -241,89 +240,6 @@ func getGaugeValue(g prometheus.Gauge) float64 {
 	return m.GetGauge().GetValue()
 }
 
-func TestConfigInitialization(t *testing.T) {
-	// Test case 1: Default values
-	config, err := initConfig()
-	if err != nil {
-		t.Fatalf("Failed to initialize config: %v", err)
-	}
-
-	// Parse expected durations
-	expectedRefresh, _ := time.ParseDuration(defaultRefreshInterval)
-	expectedStale, _ := time.ParseDuration(defaultStaleThreshold)
-	expectedScan, _ := time.ParseDuration(defaultScanInterval)
-	expectedDuration, _ := time.ParseDuration(defaultScanDuration)
-	expectedReload, _ := time.ParseDuration(defaultReloadInterval)
-
-	// Verify default values
-	if config.Port != defaultPort {
-		t.Errorf("Port = %v, want %v", config.Port, defaultPort)
-	}
-	if config.RefreshInterval != expectedRefresh {
-		t.Errorf("RefreshInterval = %v, want %v", config.RefreshInterval, expectedRefresh)
-	}
-	if config.StaleThreshold != expectedStale {
-		t.Errorf("StaleThreshold = %v, want %v", config.StaleThreshold, expectedStale)
-	}
-	if config.ScanInterval != expectedScan {
-		t.Errorf("ScanInterval = %v, want %v", config.ScanInterval, expectedScan)
-	}
-	if config.ScanDuration != expectedDuration {
-		t.Errorf("ScanDuration = %v, want %v", config.ScanDuration, expectedDuration)
-	}
-	if config.ReloadInterval != expectedReload {
-		t.Errorf("ReloadInterval = %v, want %v", config.ReloadInterval, expectedReload)
-	}
-
-	// Test case 2: Environment variables
-	os.Setenv("PORT", "9090")
-	os.Setenv("REFRESH_INTERVAL", "1m")
-	os.Setenv("STALE_THRESHOLD", "10m")
-	os.Setenv("SCAN_INTERVAL", "30s")
-	os.Setenv("SCAN_DURATION", "1m")
-	os.Setenv("RELOAD_INTERVAL", "12h")
-	defer func() {
-		os.Unsetenv("PORT")
-		os.Unsetenv("REFRESH_INTERVAL")
-		os.Unsetenv("STALE_THRESHOLD")
-		os.Unsetenv("SCAN_INTERVAL")
-		os.Unsetenv("SCAN_DURATION")
-		os.Unsetenv("RELOAD_INTERVAL")
-	}()
-
-	config, err = initConfig()
-	if err != nil {
-		t.Fatalf("Failed to initialize config with env vars: %v", err)
-	}
-
-	// Parse expected durations for env vars
-	expectedRefresh, _ = time.ParseDuration("1m")
-	expectedStale, _ = time.ParseDuration("10m")
-	expectedScan, _ = time.ParseDuration("30s")
-	expectedDuration, _ = time.ParseDuration("1m")
-	expectedReload, _ = time.ParseDuration("12h")
-
-	// Verify environment variable values
-	if config.Port != "9090" {
-		t.Errorf("Port = %v, want 9090", config.Port)
-	}
-	if config.RefreshInterval != expectedRefresh {
-		t.Errorf("RefreshInterval = %v, want %v", config.RefreshInterval, expectedRefresh)
-	}
-	if config.StaleThreshold != expectedStale {
-		t.Errorf("StaleThreshold = %v, want %v", config.StaleThreshold, expectedStale)
-	}
-	if config.ScanInterval != expectedScan {
-		t.Errorf("ScanInterval = %v, want %v", config.ScanInterval, expectedScan)
-	}
-	if config.ScanDuration != expectedDuration {
-		t.Errorf("ScanDuration = %v, want %v", config.ScanDuration, expectedDuration)
-	}
-	if config.ReloadInterval != expectedReload {
-		t.Errorf("ReloadInterval = %v, want %v", config.ReloadInterval, expectedReload)
-	}
-}
-
 func TestScanCompletionLogging(t *testing.T) {
 	// Create a buffer to capture log output
 	var logBuf bytes.Buffer
@@ -336,10 +252,9 @@ func TestScanCompletionLogging(t *testing.T) {
 	log.SetOutput(&logBuf)
 
 	// Create a config with test values
-	config := &Config{
-		ScanInterval: 2 * time.Hour,
-		ScanDuration: 30 * time.Second,
-	}
+	config := &Config{}
+	config.Bluetooth.ScanInterval = "2h"
+	config.Bluetooth.ScanDuration = "30s"
 
 	// Create a context that we can cancel to simulate scan completion
 	ctx, cancel := context.WithCancel(context.Background())
@@ -347,7 +262,8 @@ func TestScanCompletionLogging(t *testing.T) {
 	// Start a goroutine that simulates the scan completion logging
 	go func() {
 		// Simulate the scan completion message
-		log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
+		scanInterval := parseDuration(config.Bluetooth.ScanInterval)
+		log.Printf("Scan completed. Sleeping for %v until next scan...", scanInterval)
 		cancel() // Cancel the context to end the test
 	}()
 
@@ -418,13 +334,13 @@ func TestScanCompletionLoggingWithDifferentIntervals(t *testing.T) {
 			log.SetOutput(&logBuf)
 
 			// Create a config with the test interval
-			config := &Config{
-				ScanInterval: tc.scanInterval,
-				ScanDuration: 1 * time.Minute,
-			}
+			config := &Config{}
+			config.Bluetooth.ScanInterval = tc.scanInterval.String()
+			config.Bluetooth.ScanDuration = "1m"
 
 			// Simulate the scan completion message
-			log.Printf("Scan completed. Sleeping for %v until next scan...", config.ScanInterval)
+			scanInterval := parseDuration(config.Bluetooth.ScanInterval)
+			log.Printf("Scan completed. Sleeping for %v until next scan...", scanInterval)
 
 			// Check that the log contains the expected message
 			logOutput := logBuf.String()

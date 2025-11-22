@@ -24,4 +24,5 @@ services:
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # Mount DBus socket
       - ./.known_govees:/app/.known_govees:ro # Mount .known_govees as read-only
+      - ./config.yaml:/app/config.yaml:ro # Optional: Mount config.yaml (comment out to use env vars only)
     restart: unless-stopped
