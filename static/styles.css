@@ -434,30 +434,46 @@ body {
     }
     
     .group-header {
-        padding: 14px 16px;
-        font-size: 0.95rem;
+        padding: 12px 14px;
+        font-size: 0.9rem;
         flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .group-toggle {
+        width: 20px;
+        height: 20px;
     }
     
     .group-name {
-        font-size: 1rem;
-        flex: 1 1 100%;
-        margin-bottom: 8px;
+        font-size: 0.95rem;
+        flex: 0 0 100%;
+        order: 1;
     }
     
     .group-stats {
-        gap: 8px;
-        margin-left: 0;
-        margin-right: 8px;
+        gap: 6px;
+        margin-left: 28px;
+        margin-right: auto;
+        order: 2;
+        flex: 1;
     }
     
     .group-stat {
-        font-size: 0.8rem;
-        padding: 3px 6px;
+        font-size: 0.75rem;
+        padding: 2px 6px;
+    }
+    
+    .group-stat svg {
+        width: 14px;
+        height: 14px;
     }
     
     .group-count {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        order: 3;
+        margin-left: auto;
     }
 
     .card {
