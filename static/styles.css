@@ -189,6 +189,36 @@ body {
 /* Device Group Styles */
 .device-group {
     width: 100%;
+    cursor: move;
+    cursor: grab;
+}
+
+.device-group:active {
+    cursor: grabbing;
+}
+
+.device-group.dragging {
+    opacity: 0.5;
+}
+
+.group-drag-handle {
+    width: 18px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    cursor: grab;
+}
+
+.group-drag-handle:hover {
+    opacity: 0.8;
+}
+
+.group-drag-handle:active {
+    cursor: grabbing;
 }
 
 .group-header {
@@ -438,6 +468,16 @@ body {
         font-size: 0.85rem;
         flex-wrap: nowrap;
         gap: 6px;
+    }
+    
+    .group-drag-handle {
+        width: 16px;
+        height: 20px;
+    }
+    
+    .group-drag-handle svg {
+        width: 14px;
+        height: 14px;
     }
     
     .group-toggle {

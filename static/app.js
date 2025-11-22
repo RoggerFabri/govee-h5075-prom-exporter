@@ -169,8 +169,44 @@ function createMetricElement(label, value, unit, type, previousValue = null) {
     `;
 }
 
-// Store expanded state of groups
+// Store expanded state of groups and group order
 const expandedGroups = new Set();
+let groupOrder = [];
+
+// Load persisted state from localStorage
+function loadPersistedState() {
+    // Load expanded groups
+    const savedExpanded = localStorage.getItem('expandedGroups');
+    if (savedExpanded) {
+        try {
+            const expanded = JSON.parse(savedExpanded);
+            expanded.forEach(group => expandedGroups.add(group));
+        } catch (e) {
+            console.error('Error loading expanded groups:', e);
+        }
+    }
+    
+    // Load group order
+    const savedOrder = localStorage.getItem('groupOrder');
+    if (savedOrder) {
+        try {
+            groupOrder = JSON.parse(savedOrder);
+        } catch (e) {
+            console.error('Error loading group order:', e);
+            groupOrder = [];
+        }
+    }
+}
+
+// Save expanded state to localStorage
+function saveExpandedState() {
+    localStorage.setItem('expandedGroups', JSON.stringify([...expandedGroups]));
+}
+
+// Save group order to localStorage
+function saveGroupOrder() {
+    localStorage.setItem('groupOrder', JSON.stringify(groupOrder));
+}
 
 function toggleGroup(groupElement) {
     const groupName = groupElement.getAttribute('data-group');
@@ -189,6 +225,64 @@ function toggleGroup(groupElement) {
     content.style.display = isExpanded ? 'grid' : 'none';
     toggle.setAttribute('aria-expanded', isExpanded);
     groupElement.classList.toggle('collapsed', !isExpanded);
+    
+    // Persist the expanded state
+    saveExpandedState();
+}
+
+// Drag and drop functionality
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = e.target.closest('.device-group');
+    if (draggedElement) {
+        draggedElement.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+    }
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    
+    const target = e.target.closest('.device-group');
+    if (target && target !== draggedElement) {
+        const container = document.getElementById('sensors-container');
+        const allGroups = [...container.querySelectorAll('.device-group')];
+        const draggedIndex = allGroups.indexOf(draggedElement);
+        const targetIndex = allGroups.indexOf(target);
+        
+        if (draggedIndex < targetIndex) {
+            target.parentNode.insertBefore(draggedElement, target.nextSibling);
+        } else {
+            target.parentNode.insertBefore(draggedElement, target);
+        }
+    }
+    
+    return false;
+}
+
+function handleDragEnd(e) {
+    if (draggedElement) {
+        draggedElement.classList.remove('dragging');
+        
+        // Save the new order
+        const container = document.getElementById('sensors-container');
+        const allGroups = [...container.querySelectorAll('.device-group')];
+        groupOrder = allGroups.map(group => group.getAttribute('data-group'));
+        saveGroupOrder();
+    }
+    draggedElement = null;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    return false;
 }
 
 async function fetchMetrics() {
@@ -263,11 +357,34 @@ async function fetchMetrics() {
         });
 
         // Get sorted group names
-        const sortedGroupNames = Object.keys(groupedRooms).sort();
+        let sortedGroupNames = Object.keys(groupedRooms).sort();
+        
+        // Apply saved order if it exists
+        if (groupOrder.length > 0) {
+            // Filter out groups that no longer exist and add new groups at the end
+            const existingGroups = sortedGroupNames.filter(g => groupOrder.includes(g));
+            const newGroups = sortedGroupNames.filter(g => !groupOrder.includes(g));
+            
+            sortedGroupNames = [
+                ...groupOrder.filter(g => existingGroups.includes(g)),
+                ...newGroups
+            ];
+            
+            // Update groupOrder to include new groups
+            if (newGroups.length > 0) {
+                groupOrder = sortedGroupNames;
+                saveGroupOrder();
+            }
+        } else {
+            // First time - save the alphabetical order
+            groupOrder = sortedGroupNames;
+            saveGroupOrder();
+        }
 
-        // Initialize all groups as expanded on first load
-        if (expandedGroups.size === 0) {
+        // Initialize all groups as expanded on first load if no saved state
+        if (expandedGroups.size === 0 && !localStorage.getItem('expandedGroups')) {
             sortedGroupNames.forEach(group => expandedGroups.add(group));
+            saveExpandedState();
         }
 
         // Escape HTML to prevent XSS
@@ -314,8 +431,13 @@ async function fetchMetrics() {
             }).join('');
             
             return `
-                <div class="device-group ${isExpanded ? '' : 'collapsed'}" data-group="${escapeHtml(groupName)}">
+                <div class="device-group ${isExpanded ? '' : 'collapsed'}" data-group="${escapeHtml(groupName)}" draggable="true">
                     <button class="group-header" aria-expanded="${isExpanded}">
+                        <span class="group-drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                <path d="M9 3h2v2H9V3zm0 4h2v2H9V7zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-16h2v2h-2V3zm0 4h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
+                            </svg>
+                        </span>
                         <span class="group-toggle" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="24" height="24">
                                 <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
@@ -371,11 +493,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set initial theme
     document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
     
+    // Load persisted state
+    loadPersistedState();
+    
     // Initial timestamp
     updateTimestamp();
 
     // Event delegation for group header clicks
-    document.getElementById('sensors-container').addEventListener('click', (e) => {
+    const container = document.getElementById('sensors-container');
+    container.addEventListener('click', (e) => {
+        // Ignore clicks on drag handle
+        if (e.target.closest('.group-drag-handle')) {
+            return;
+        }
+        
         const groupHeader = e.target.closest('.group-header');
         if (groupHeader) {
             const groupElement = groupHeader.closest('.device-group');
@@ -384,6 +515,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    
+    // Event delegation for drag and drop
+    container.addEventListener('dragstart', handleDragStart, false);
+    container.addEventListener('dragover', handleDragOver, false);
+    container.addEventListener('drop', handleDrop, false);
+    container.addEventListener('dragend', handleDragEnd, false);
 
     // Initial fetch and periodic updates
     fetchMetrics();
