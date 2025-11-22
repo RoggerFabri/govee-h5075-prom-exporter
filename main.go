@@ -343,6 +343,15 @@ func main() {
 	// Create a WaitGroup to track all goroutines
 	var wg sync.WaitGroup
 
+	// Start configuration file watcher for hot-reload
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		watchConfigFile(ctx, func(newConfig *Config) {
+			loadKnownGovees(newConfig)
+		})
+	}()
+
 	// Start the BLE scanner
 	wg.Add(1)
 	go func() {
@@ -350,15 +359,18 @@ func main() {
 		startBLEScanner(ctx, config)
 	}()
 
-	// Start the stale metrics checker
+	// Start the stale metrics checker with proper ticker
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		ticker := time.NewTicker(parseDuration(config.Metrics.RefreshInterval))
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(parseDuration(config.Metrics.RefreshInterval)):
+			case <-ticker.C:
 				checkForStaleMetrics(config)
 			}
 		}

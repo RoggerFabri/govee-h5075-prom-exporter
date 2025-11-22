@@ -10,8 +10,10 @@ services:
       - "/dev/bus/usb:/dev/bus/usb"
     environment:
       - PORT=8080
-      - REFRESH_INTERVAL=30
-      - STALE_THRESHOLD=300
+      - SCAN_INTERVAL=15s
+      - SCAN_DURATION=15s
+      - REFRESH_INTERVAL=30s
+      - STALE_THRESHOLD=5m
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
       # Dashboard warning thresholds (optional)
       - TEMPERATURE_MIN=-20

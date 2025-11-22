@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
@@ -202,4 +204,82 @@ func initConfig() (*Config, []ConfigSource, error) {
 	}
 
 	return &config, sources, nil
+}
+
+// watchConfigFile monitors the config.yaml file for changes and reloads device configuration
+// The onReload callback is called when configuration is successfully reloaded
+func watchConfigFile(ctx context.Context, onReload func(*Config)) {
+	// Check if config.yaml exists
+	configPath := "config.yaml"
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Printf("Config file watcher: %s not found, hot-reload disabled", configPath)
+		return
+	}
+
+	// Create file watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("Failed to create config file watcher: %v. Hot-reload disabled.", err)
+		return
+	}
+	defer watcher.Close()
+
+	// Add config file to watcher
+	err = watcher.Add(configPath)
+	if err != nil {
+		log.Printf("Failed to watch config file: %v. Hot-reload disabled.", err)
+		return
+	}
+
+	log.Printf("Config file watcher: Monitoring %s for changes", configPath)
+
+	// Debounce timer to avoid multiple reloads for rapid file changes
+	var debounceTimer *time.Timer
+	debounceDuration := 500 * time.Millisecond
+
+	for {
+		select {
+		case <-ctx.Done():
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			return
+
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+
+			// Watch for Write and Create events (editors may delete and recreate files)
+			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+				// Debounce: reset timer if it exists, or create new one
+				if debounceTimer != nil {
+					debounceTimer.Stop()
+				}
+
+				debounceTimer = time.AfterFunc(debounceDuration, func() {
+					log.Println("Config file changed, reloading device configuration...")
+
+					// Reload configuration
+					newConfig, _, err := initConfig()
+					if err != nil {
+						log.Printf("Failed to reload configuration: %v. Keeping existing config.", err)
+						return
+					}
+
+					// Call the reload callback
+					if onReload != nil {
+						onReload(newConfig)
+					}
+					log.Println("Device configuration reloaded successfully")
+				})
+			}
+
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Printf("Config file watcher error: %v", err)
+		}
+	}
 }

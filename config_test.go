@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestConfigInitialization(t *testing.T) {
@@ -100,6 +102,32 @@ func TestParseDuration(t *testing.T) {
 				t.Errorf("parseDuration(%q) = %v, want %v", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestConfigWatcherContextCancellation(t *testing.T) {
+	// Test that the config watcher properly stops when context is cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start the watcher in a goroutine with a nil callback
+	done := make(chan bool)
+	go func() {
+		watchConfigFile(ctx, nil)
+		done <- true
+	}()
+
+	// Give it a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel the context
+	cancel()
+
+	// Wait for the goroutine to exit with a timeout
+	select {
+	case <-done:
+		// Success - the function exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("Config watcher did not stop after context cancellation")
 	}
 }
 
