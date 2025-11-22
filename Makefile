@@ -2,7 +2,7 @@
 # Provides convenient commands for development and deployment
 # Compatible with Windows, macOS, and Linux
 
-.PHONY: help mock-server docker-build docker-up docker-down install-deps clean
+.PHONY: help mock-server docker-build docker-run docker-up docker-down install-deps clean test
 
 # Default target
 help: ## Show this help message
@@ -11,14 +11,17 @@ help: ## Show this help message
 	@echo   help                 Show this help message
 	@echo   mock-server          Start development server with mock data (localhost:5000)
 	@echo   install-deps         Install Python dependencies for mock server
-	@echo   docker-build         Build the Docker image
-	@echo   docker-up            Start production server with Docker (localhost:8080)
-	@echo   docker-down          Stop the Docker containers
+	@echo   test                 Run all Go tests
+	@echo   docker-build         Build Docker image
+	@echo   docker-run           Run Docker container (requires docker-build first)
+	@echo   docker-up            Start with Docker Compose (localhost:8080)
+	@echo   docker-down          Stop Docker Compose containers
 	@echo   clean                Clean up build artifacts and stop containers
 	@echo.
 	@echo Quick Start:
 	@echo   make mock-server     Start development server with mock data
-	@echo   make docker-up       Start production server with Docker
+	@echo   make docker-build    Build Docker image
+	@echo   make docker-up       Start production server with Docker Compose
 
 # Development Commands
 mock-server: ## Start the mock server for development (localhost:5000)
@@ -32,13 +35,25 @@ install-deps: ## Install Python dependencies for mock server
 	@echo Installing Flask for mock server...
 	pip install flask
 
+test: ## Run all Go tests
+	@echo Running Go tests...
+	go test -v ./...
+
 # Docker Commands
 docker-build: ## Build the Docker image
 	@echo Building Docker image...
-	docker-compose build
+	@echo Image will be tagged as govee-h5075-prom-exporter:latest
+	docker build -t govee-h5075-prom-exporter:latest .
 
-docker-up: ## Start the production server with Docker (localhost:8080)
-	@echo Starting production server with Docker...
+docker-run: ## Run Docker container
+	@echo Running Docker container...
+	@echo UI: http://localhost:8080
+	@echo Metrics: http://localhost:8080/metrics
+	@echo Note: This runs in host network mode for BLE access
+	docker run --rm -it --name govee-exporter --network host --cap-add NET_ADMIN --cap-add NET_RAW govee-h5075-prom-exporter:latest
+
+docker-up: ## Start with Docker Compose (localhost:8080)
+	@echo Starting with Docker Compose...
 	@echo UI: http://localhost:8080
 	@echo Metrics: http://localhost:8080/metrics
 	docker-compose up --build -d
