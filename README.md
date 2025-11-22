@@ -94,7 +94,7 @@ A4:C1:38:C1:A0:C1 HotPress 0.3 -0.7
 ```
 
 ### **2️⃣ Mount the File in Docker**
-Modify `docker-compose.yml`:
+Modify `docker-compose.yaml`:
 ```yaml
 volumes:
   - ./.known_govees:/app/.known_govees:ro
@@ -104,7 +104,7 @@ volumes:
 
 ## 🏗️ Running with Docker Compose
 
-### **📜 `docker-compose.yml`**
+### **📜 `docker-compose.yaml`**
 ```yaml
 services:
   govee-h5075-prom-exporter:
@@ -158,7 +158,7 @@ curl http://localhost:8080/metrics
 ## 📊 Prometheus Integration
 
 ### **1️⃣ Add Exporter to Prometheus Configuration**
-Edit `prometheus.yml`:
+Edit `prometheus.yaml`:
 ```yaml
 scrape_configs:
   - job_name: 'govee_ble'
