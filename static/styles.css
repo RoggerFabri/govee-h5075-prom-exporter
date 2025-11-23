@@ -543,9 +543,10 @@ body {
         padding: 4px 6px;
         gap: 3px;
         line-height: 1.2;
-        opacity: 0.75;
+        opacity: 0.85;
         font-weight: 500;
-        background-color: rgba(var(--border-color-rgb), 0.15);
+        background: linear-gradient(135deg, rgba(233, 76, 175, 0.12), rgba(139, 92, 246, 0.12));
+        border: 1px solid rgba(233, 76, 175, 0.2);
         border-radius: 8px;
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
@@ -555,6 +556,7 @@ body {
     .group-stat svg {
         width: 14px;
         height: 14px;
+        opacity: 0.8;
     }
     
     .group-count {
@@ -564,6 +566,9 @@ body {
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
         font-feature-settings: 'tnum';
+        background: linear-gradient(135deg, rgba(233, 76, 175, 0.15), rgba(139, 92, 246, 0.15));
+        border: 1px solid rgba(233, 76, 175, 0.25);
+        opacity: 0.85;
     }
 
     .card {
