@@ -375,9 +375,12 @@ body {
     display: none;
 }
 
-.card:hover {
-    transform: translateY(-5px) translateZ(0);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+/* Disable hover effect on touch devices */
+@media (hover: hover) and (pointer: fine) {
+    .card:hover {
+        transform: translateY(-5px) translateZ(0);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    }
 }
 
 .card h2 {
