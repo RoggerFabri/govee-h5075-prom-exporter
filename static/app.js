@@ -853,11 +853,26 @@ async function fetchMetrics() {
     }
 }
 
+// Store the interval ID so we can reset it
+let refreshIntervalId = null;
+
+function resetRefreshInterval() {
+    // Clear existing interval
+    if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+    }
+    // Start new interval
+    refreshIntervalId = setInterval(fetchMetrics, REFRESH_INTERVAL);
+}
+
 async function manualRefresh() {
     const refreshButton = document.querySelector('.refresh-button');
     refreshButton.classList.add('spinning');
     await fetchMetrics();
     refreshButton.classList.remove('spinning');
+    
+    // Reset the interval timer so next auto-refresh is in full 30 seconds
+    resetRefreshInterval();
 }
 
 // Initialize when DOM is loaded
@@ -901,5 +916,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial fetch and periodic updates
     fetchMetrics();
-    setInterval(fetchMetrics, REFRESH_INTERVAL);
+    resetRefreshInterval();
 }); 
