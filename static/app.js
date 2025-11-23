@@ -391,6 +391,105 @@ function handleTouchEnd(e) {
     placeholder = null;
 }
 
+function createCompactMetrics(data) {
+    const metrics = [];
+    
+    // Temperature
+    if (typeof data.temperature !== 'undefined') {
+        const temp = data.temperature.toFixed(1);
+        const showFreezingWarning = data.temperature < TEMPERATURE_LOW_THRESHOLD;
+        const showHotWarning = data.temperature > TEMPERATURE_HIGH_THRESHOLD;
+        
+        let warningIcon = '';
+        if (showFreezingWarning) {
+            warningIcon = `
+                <span class="warning-icon freezing-warning" role="alert" aria-label="Freezing Temperature Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2M12 6L11.5 8.5L9 9L11.5 9.5L12 12L12.5 9.5L15 9L12.5 8.5L12 6Z"/>
+                    </svg>
+                </span>
+            `;
+        } else if (showHotWarning) {
+            warningIcon = `
+                <span class="warning-icon hot-warning" role="alert" aria-label="High Temperature Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M11.5 3.5c0 .83-.67 1.5-1.5 1.5S8.5 4.33 8.5 3.5 9.17 2 10 2s1.5.67 1.5 1.5zM6.5 6c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S8.83 7.5 8 7.5 6.5 6.83 6.5 6zm7 0c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5-1.5.67-1.5 1.5zm2.5-2.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5zM12 8c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>
+                    </svg>
+                </span>
+            `;
+        }
+        
+        metrics.push(`
+            <span class="compact-metric" title="Temperature">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/>
+                </svg>${temp}°C${warningIcon}
+            </span>
+        `);
+    }
+    
+    // Humidity
+    if (typeof data.humidity !== 'undefined') {
+        const humid = data.humidity.toFixed(1);
+        const showHighHumidityWarning = data.humidity > HUMIDITY_HIGH_THRESHOLD;
+        const showLowHumidityWarning = data.humidity < HUMIDITY_LOW_THRESHOLD;
+        
+        let warningIcon = '';
+        if (showHighHumidityWarning) {
+            warningIcon = `
+                <span class="warning-icon high-humidity-warning" role="alert" aria-label="High Humidity Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0zm0 15.93A5.5 5.5 0 0 1 6.5 13c0-1.48.58-2.92 1.66-4l.01-.01L12 5.27l3.83 3.82.01.01c1.08 1.08 1.66 2.52 1.66 4a5.5 5.5 0 0 1-5.5 5.62z"/>
+                    </svg>
+                </span>
+            `;
+        } else if (showLowHumidityWarning) {
+            warningIcon = `
+                <span class="warning-icon low-humidity-warning" role="alert" aria-label="Low Humidity Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0zm0 15.93A5.5 5.5 0 0 1 6.5 13c0-1.48.58-2.92 1.66-4l.01-.01L12 5.27l3.83 3.82.01.01c1.08 1.08 1.66 2.52 1.66 4a5.5 5.5 0 0 1-5.5 5.62zM9 12c0 1.66 1.34 3 3 3s3-1.34 3-3H9z"/>
+                    </svg>
+                </span>
+            `;
+        }
+        
+        metrics.push(`
+            <span class="compact-metric" title="Humidity">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/>
+                </svg>${humid}%${warningIcon}
+            </span>
+        `);
+    }
+    
+    // Battery
+    if (typeof data.battery !== 'undefined') {
+        const batt = Math.round(data.battery);
+        const showBatteryWarning = batt <= BATTERY_LOW_THRESHOLD;
+        
+        let warningIcon = '';
+        if (showBatteryWarning) {
+            warningIcon = `
+                <span class="warning-icon" role="alert" aria-label="Low Battery Warning">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                </span>
+            `;
+        }
+        
+        metrics.push(`
+            <span class="compact-metric" title="Battery">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+                </svg>${batt}%${warningIcon}
+            </span>
+        `);
+    }
+    
+    return `<div class="metrics-compact">${metrics.join('')}</div>`;
+}
+
 async function fetchMetrics() {
     try {
         const controller = new AbortController();
@@ -526,9 +625,14 @@ async function fetchMetrics() {
             
             const cardsHTML = roomsInGroup.map(({ name, data }) => {
                 const prev = previousValues[name] || {};
+                
+                // Create compact metrics for mobile
+                const compactMetrics = createCompactMetrics(data);
+                
                 return `
                     <div class="card" data-room="${escapeHtml(name)}">
                         <h2>${escapeHtml(name)}</h2>
+                        ${compactMetrics}
                         ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
                         ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
                         ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
@@ -633,6 +737,18 @@ async function fetchMetrics() {
                     if (!card) return;
                     
                     const prev = previousValues[name] || {};
+                    
+                    // Update compact metrics (mobile view)
+                    const compactContainer = card.querySelector('.metrics-compact');
+                    if (compactContainer) {
+                        const compactMetrics = createCompactMetrics(data);
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = compactMetrics;
+                        const newCompactContainer = tempDiv.firstElementChild;
+                        if (newCompactContainer) {
+                            compactContainer.replaceWith(newCompactContainer);
+                        }
+                    }
                     
                     // Update temperature
                     if (typeof data.temperature !== 'undefined') {
