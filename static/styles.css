@@ -545,6 +545,8 @@ body {
         background-color: rgba(var(--border-color-rgb), 0.15);
         border-radius: 8px;
         white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
     }
     
     .group-stat svg {
@@ -557,6 +559,8 @@ body {
         padding: 4px 8px;
         flex-shrink: 0;
         white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
     }
 
     .card {
@@ -612,6 +616,8 @@ body {
         border-radius: 8px;
         white-space: nowrap;
         flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
     }
     
     .metrics-compact .compact-metric svg {
@@ -622,15 +628,29 @@ body {
         fill: currentColor;
     }
     
-    .metrics-compact .warning-icon {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 2px;
+    /* Warning color states for icons */
+    .metrics-compact .compact-metric.temp-low svg {
+        fill: #2196F3;
+        opacity: 1;
     }
     
-    .metrics-compact .warning-icon svg {
-        width: 14px;
-        height: 14px;
+    .metrics-compact .compact-metric.temp-high svg {
+        fill: #FF5722;
+        opacity: 1;
+    }
+    
+    .metrics-compact .compact-metric.humidity-low svg {
+        fill: #FFC107;
+        opacity: 1;
+    }
+    
+    .metrics-compact .compact-metric.humidity-high svg {
+        fill: #2196F3;
+        opacity: 1;
+    }
+    
+    .metrics-compact .compact-metric.battery-low svg {
+        fill: #FF5722;
         opacity: 1;
     }
 
