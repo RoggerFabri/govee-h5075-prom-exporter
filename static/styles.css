@@ -247,6 +247,8 @@ body {
     padding: 16px 20px;
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
+    border-left: 3px solid var(--primary-color);
+    background: linear-gradient(90deg, rgba(var(--primary-color), 0.08) 0%, var(--card-bg) 100%);
     border-radius: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -484,14 +486,17 @@ body {
     
     .group-content {
         grid-template-columns: 1fr;
-        gap: 15px;
+        gap: 8px;
     }
     
     .group-header {
-        padding: 10px 12px;
+        padding: 12px 14px;
         font-size: 0.85rem;
         flex-wrap: nowrap;
         gap: 6px;
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-color);
+        background-color: rgba(var(--primary-color), 0.08);
     }
     
     .group-drag-handle {
@@ -519,7 +524,7 @@ body {
     }
     
     .group-stats {
-        gap: 4px;
+        gap: 2px;
         margin-left: auto;
         margin-right: 4px;
         flex-shrink: 0;
@@ -529,6 +534,7 @@ body {
         font-size: 0.7rem;
         padding: 2px 4px;
         gap: 2px;
+        line-height: 1.2;
     }
     
     .group-stat svg {
@@ -558,10 +564,14 @@ body {
     
     .card h2 {
         margin-bottom: 0;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         font-weight: 600;
         flex: 1;
         min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 1;
     }
     
     /* Mobile compact layout - hide individual metrics */
@@ -573,29 +583,32 @@ body {
     .card .metrics-compact {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 2px;
         flex-wrap: wrap;
         margin-left: auto;
+        flex-shrink: 0;
     }
     
     .metrics-compact .compact-metric {
         display: flex;
         align-items: center;
-        gap: 4px;
-        font-size: 0.8rem;
+        gap: 2px;
+        font-size: 0.7rem;
+        line-height: 1.2;
         opacity: 0.75;
         font-weight: 500;
-        padding: 4px 8px;
+        padding: 2px 4px;
         background-color: rgba(var(--border-color-rgb), 0.15);
         border-radius: 8px;
         white-space: nowrap;
+        flex-shrink: 0;
     }
     
     .metrics-compact .compact-metric svg {
         opacity: 0.7;
         flex-shrink: 0;
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         fill: currentColor;
     }
     
@@ -606,8 +619,8 @@ body {
     }
     
     .metrics-compact .warning-icon svg {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         opacity: 1;
     }
 

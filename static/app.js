@@ -421,7 +421,7 @@ function createCompactMetrics(data) {
         
         metrics.push(`
             <span class="compact-metric" title="Temperature">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                     <path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/>
                 </svg>${temp}°C${warningIcon}
             </span>
@@ -455,7 +455,7 @@ function createCompactMetrics(data) {
         
         metrics.push(`
             <span class="compact-metric" title="Humidity">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/>
                 </svg>${humid}%${warningIcon}
             </span>
@@ -480,7 +480,7 @@ function createCompactMetrics(data) {
         
         metrics.push(`
             <span class="compact-metric" title="Battery">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                     <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
                 </svg>${batt}%${warningIcon}
             </span>
@@ -655,8 +655,8 @@ async function fetchMetrics() {
                         </span>
                         <span class="group-name">${escapeHtml(groupName)}</span>
                         <div class="group-stats">
-                            ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
-                            ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}
+                            ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
+                            ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}
                         </div>
                         <span class="group-count">${roomsInGroup.length} device${roomsInGroup.length !== 1 ? 's' : ''}</span>
                     </button>
