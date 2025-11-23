@@ -263,19 +263,22 @@ body {
     -webkit-backdrop-filter: blur(10px);
 }
 
-.group-header:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
-    border-color: rgba(var(--border-color-rgb), 0.3);
+@media (hover: hover) and (pointer: fine) {
+    .group-header:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+        border-right-color: rgba(var(--border-color-rgb), 0.3);
+        border-top-color: rgba(var(--border-color-rgb), 0.3);
+        border-bottom-color: rgba(var(--border-color-rgb), 0.3);
+    }
 }
 
-[data-theme="dark"] .group-header:hover {
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+@media (hover: hover) and (pointer: fine) {
+    [data-theme="dark"] .group-header:hover {
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+    }
 }
 
-.group-header:active {
-    transform: translateY(0px);
-}
 
 .group-toggle {
     width: 24px;
