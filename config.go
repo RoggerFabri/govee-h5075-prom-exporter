@@ -14,9 +14,9 @@ import (
 
 // Device represents a known Govee H5075 device
 type Device struct {
-	MAC   string `mapstructure:"mac"`
-	Name  string `mapstructure:"name"`
-	Group string `mapstructure:"group"` // Optional grouping (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
+	MAC     string `mapstructure:"mac"`
+	Name    string `mapstructure:"name"`
+	Group   string `mapstructure:"group"` // Optional grouping (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
 	Offsets struct {
 		Temperature float64 `mapstructure:"temperature"`
 		Humidity    float64 `mapstructure:"humidity"`
@@ -33,6 +33,13 @@ type Config struct {
 		ScanInterval string `mapstructure:"scanInterval"`
 		ScanDuration string `mapstructure:"scanDuration"`
 	} `mapstructure:"bluetooth"`
+
+	OpenMeteo struct {
+		Enabled   bool    `mapstructure:"enabled"`
+		Interval  string  `mapstructure:"interval"`
+		Latitude  float64 `mapstructure:"latitude"`
+		Longitude float64 `mapstructure:"longitude"`
+	} `mapstructure:"openmeteo"`
 
 	Metrics struct {
 		RefreshInterval string `mapstructure:"refreshInterval"`
@@ -175,7 +182,7 @@ func initConfig() (*Config, []ConfigSource, error) {
 		{"thresholds.humidity.high", config.Thresholds.Humidity.High, "HUMIDITY_HIGH_THRESHOLD"},
 		{"thresholds.battery.low", config.Thresholds.Battery.Low, "BATTERY_LOW_THRESHOLD"},
 	}
-	
+
 	// Add devices source information
 	devicesSource := "default"
 	if len(config.Devices) > 0 {

@@ -42,6 +42,20 @@ var (
 		},
 		[]string{"name"},
 	)
+
+	openMeteoTemperatureGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "openmeteo_temperature",
+			Help: "Temperature from OpenMeteo API",
+		},
+	)
+
+	openMeteoHumidityGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "openmeteo_humidity",
+			Help: "Humidity from OpenMeteo API",
+		},
+	)
 )
 
 type KnownGovee struct {
@@ -69,6 +83,8 @@ func init() {
 	prometheus.MustRegister(temperatureGauge)
 	prometheus.MustRegister(humidityGauge)
 	prometheus.MustRegister(batteryGauge)
+	prometheus.MustRegister(openMeteoTemperatureGauge)
+	prometheus.MustRegister(openMeteoHumidityGauge)
 }
 
 // loadKnownGovees loads device configuration from config into the knownGovees map
@@ -318,6 +334,60 @@ func checkForStaleMetrics(config *Config) {
 	}
 }
 
+// fetchOpenMeteoData fetches weather data from OpenMeteo API and updates Prometheus metrics
+func fetchOpenMeteoData(ctx context.Context, config *Config) {
+	if !config.OpenMeteo.Enabled {
+		return
+	}
+
+	client := NewOpenMeteoClient(config.OpenMeteo.Latitude, config.OpenMeteo.Longitude)
+
+	// Create a context with timeout for the API call
+	apiCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	temp, humidity, err := client.GetTemperatureAndHumidity(apiCtx)
+	if err != nil {
+		log.Printf("Failed to fetch OpenMeteo data: %v", err)
+		return
+	}
+
+	// Update Prometheus metrics
+	openMeteoTemperatureGauge.Set(temp)
+	openMeteoHumidityGauge.Set(float64(humidity))
+
+	log.Printf("OpenMeteo | Temp: %5.2f°C | Humidity: %5.2f%%", temp, float64(humidity))
+}
+
+// startOpenMeteoPoller starts a goroutine that periodically fetches OpenMeteo data
+func startOpenMeteoPoller(ctx context.Context, config *Config) {
+	if !config.OpenMeteo.Enabled {
+		log.Println("OpenMeteo API integration is disabled")
+		return
+	}
+
+	log.Printf("Starting OpenMeteo API poller (interval: %s, location: %.4f, %.4f)",
+		config.OpenMeteo.Interval,
+		config.OpenMeteo.Latitude,
+		config.OpenMeteo.Longitude)
+
+	// Fetch immediately on startup
+	fetchOpenMeteoData(ctx, config)
+
+	// Then fetch on interval
+	ticker := time.NewTicker(parseDuration(config.OpenMeteo.Interval))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			fetchOpenMeteoData(ctx, config)
+		}
+	}
+}
+
 func main() {
 	// Initialize configuration
 	config, sources, err := initConfig()
@@ -375,6 +445,15 @@ func main() {
 			}
 		}
 	}()
+
+	// Start OpenMeteo API poller if enabled
+	if config.OpenMeteo.Enabled {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			startOpenMeteoPoller(ctx, config)
+		}()
+	}
 
 	// Serve static files with correct MIME types
 	mux := http.NewServeMux()

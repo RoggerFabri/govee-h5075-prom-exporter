@@ -9,6 +9,13 @@ server:
 bluetooth:
   scanInterval: 15s             # How often to scan for BLE devices
   scanDuration: 15s             # How long each scan should run
+
+# OpenMeteo API configuration
+openmeteo:
+  enabled: true                 # Enable/disable OpenMeteo weather API integration
+  interval: 5m                  # How often to fetch weather data
+  latitude: 53.35               # Latitude for weather location
+  longitude: -6.26              # Longitude for weather location
   
 # Metrics management
 metrics:
