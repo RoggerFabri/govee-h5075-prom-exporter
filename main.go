@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -287,12 +288,14 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	humidity += govee.HumidityOffset
 
 	// Check if values have changed from last logged values
+	// Use epsilon comparison for floating point values to handle precision issues
+	const epsilon = 0.01 // 0.01°C for temperature, 0.01% for humidity
 	mutex.Lock()
 	lastValues, exists := deviceLastLoggedVals[govee.Name]
 	valuesChanged := !exists ||
-		lastValues.Temperature != temperature ||
-		lastValues.Humidity != humidity ||
-		lastValues.Battery != batteryLevel
+		lastValues.Battery != batteryLevel ||
+		math.Abs(lastValues.Temperature-temperature) >= epsilon ||
+		math.Abs(lastValues.Humidity-humidity) >= epsilon
 
 	if valuesChanged {
 		// Update last logged values
@@ -394,10 +397,12 @@ func fetchOpenMeteoData(ctx context.Context) {
 	openMeteoHumidityGauge.Set(float64(humidity))
 
 	// Check if values have changed from last logged values
+	// Use epsilon comparison for floating point values to handle precision issues
+	const epsilon = 0.01 // 0.01°C for temperature, 0.01% for humidity
 	openMeteoConfigMu.Lock()
 	valuesChanged := lastOpenMeteoValues == nil ||
-		lastOpenMeteoValues.Temperature != temp ||
-		lastOpenMeteoValues.Humidity != float64(humidity)
+		math.Abs(lastOpenMeteoValues.Temperature-temp) >= epsilon ||
+		math.Abs(lastOpenMeteoValues.Humidity-float64(humidity)) >= epsilon
 
 	if valuesChanged {
 		// Update last logged values
