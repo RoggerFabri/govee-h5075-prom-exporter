@@ -59,8 +59,9 @@ body {
 
 .header {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 1000;
     display: flex;
     gap: 15px;
@@ -652,14 +653,7 @@ body {
     }
 
     .header {
-        top: auto;
-        bottom: 20px;
-        right: 50%;
-        transform: translateX(50%);
         padding: 8px;
-        background: var(--header-bg);
-        border: 1px solid var(--header-border);
-        box-shadow: var(--header-shadow);
     }
 }
 
