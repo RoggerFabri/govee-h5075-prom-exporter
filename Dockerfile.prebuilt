@@ -1,7 +1,7 @@
 # Dockerfile for pre-built binaries (used with GitHub Actions native cross-compilation)
 # This Dockerfile expects the Go binary to already be built and present in the build context
 
-FROM alpine:3.22
+FROM alpine:3.22@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
 
 # Container metadata
 LABEL maintainer="Rogger Fabri" \
@@ -9,10 +9,8 @@ LABEL maintainer="Rogger Fabri" \
       version="1.0.0"
 
 # Install packages and create non-root user
-# Split into separate layers for better caching:
-# 1. Package installation (cached if packages don't change)
-# 2. User creation (always cached)
-# Note: Using --no-cache without --update-cache to maximize cache hits
+# Using cache mount for speed, but layer should still be cacheable
+# Note: apk add without --update-cache to avoid fetching fresh indexes
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache ca-certificates tzdata && \
     addgroup -S appgroup && \

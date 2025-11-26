@@ -72,8 +72,8 @@ jobs:
           context: .
           file: ./Dockerfile.prebuilt
           platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
           provenance: true
           sbom: true
           tags: |
