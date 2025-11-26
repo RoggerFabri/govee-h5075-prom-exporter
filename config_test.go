@@ -91,8 +91,8 @@ func TestParseDuration(t *testing.T) {
 		{"Valid minutes", "5m", "5m0s"},
 		{"Valid hours", "2h", "2h0m0s"},
 		{"Valid combined", "1h30m", "1h30m0s"},
-		{"Invalid format", "invalid", "30s"}, // Should default to 30s
-		{"Empty string", "", "30s"},          // Should default to 30s
+		{"Invalid format", "invalid", "30s"},
+		{"Empty string", "", "30s"},
 	}
 
 	for _, tt := range tests {

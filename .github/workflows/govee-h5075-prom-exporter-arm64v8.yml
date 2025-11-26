@@ -12,7 +12,6 @@ on:
       - 'LICENSE.md'
       - '.gitignore'
       - '.github/workflows/*'
-      - '.known_govees'
       - 'docker-compose.yml'
       - 'mock_server.py'
   push:
