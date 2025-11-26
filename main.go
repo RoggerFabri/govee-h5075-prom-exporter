@@ -66,10 +66,12 @@ type KnownGovee struct {
 }
 
 var (
-	adapter        = bluetooth.DefaultAdapter
-	knownGovees    = make(map[string]KnownGovee)
-	lastUpdateTime = make(map[string]time.Time)
-	mutex          = &sync.Mutex{}
+	adapter           = bluetooth.DefaultAdapter
+	knownGovees       = make(map[string]KnownGovee)
+	lastUpdateTime    = make(map[string]time.Time)
+	mutex             = &sync.Mutex{}
+	openMeteoConfig   *Config
+	openMeteoConfigMu = &sync.RWMutex{}
 )
 
 // Application constants
@@ -335,8 +337,12 @@ func checkForStaleMetrics(config *Config) {
 }
 
 // fetchOpenMeteoData fetches weather data from OpenMeteo API and updates Prometheus metrics
-func fetchOpenMeteoData(ctx context.Context, config *Config) {
-	if !config.OpenMeteo.Enabled {
+func fetchOpenMeteoData(ctx context.Context) {
+	openMeteoConfigMu.RLock()
+	config := openMeteoConfig
+	openMeteoConfigMu.RUnlock()
+
+	if config == nil || !config.OpenMeteo.Enabled {
 		return
 	}
 
@@ -359,31 +365,102 @@ func fetchOpenMeteoData(ctx context.Context, config *Config) {
 	log.Printf("OpenMeteo | Temp: %5.2f°C | Humidity: %5.2f%%", temp, float64(humidity))
 }
 
-// startOpenMeteoPoller starts a goroutine that periodically fetches OpenMeteo data
-func startOpenMeteoPoller(ctx context.Context, config *Config) {
-	if !config.OpenMeteo.Enabled {
-		log.Println("OpenMeteo API integration is disabled")
-		return
+// updateOpenMeteoConfig safely updates the OpenMeteo configuration
+func updateOpenMeteoConfig(newConfig *Config) {
+	openMeteoConfigMu.Lock()
+	oldEnabled := openMeteoConfig != nil && openMeteoConfig.OpenMeteo.Enabled
+	oldInterval := ""
+	oldLat := 0.0
+	oldLon := 0.0
+	if openMeteoConfig != nil {
+		oldInterval = openMeteoConfig.OpenMeteo.Interval
+		oldLat = openMeteoConfig.OpenMeteo.Latitude
+		oldLon = openMeteoConfig.OpenMeteo.Longitude
 	}
 
-	log.Printf("Starting OpenMeteo API poller (interval: %s, location: %.4f, %.4f)",
-		config.OpenMeteo.Interval,
-		config.OpenMeteo.Latitude,
-		config.OpenMeteo.Longitude)
+	openMeteoConfig = newConfig
+	newEnabled := newConfig.OpenMeteo.Enabled
+	openMeteoConfigMu.Unlock()
 
-	// Fetch immediately on startup
-	fetchOpenMeteoData(ctx, config)
+	// Log configuration changes
+	if oldEnabled != newEnabled {
+		if newEnabled {
+			log.Printf("OpenMeteo: Enabled (interval: %s, location: %.4f, %.4f)",
+				newConfig.OpenMeteo.Interval,
+				newConfig.OpenMeteo.Latitude,
+				newConfig.OpenMeteo.Longitude)
+		} else {
+			log.Println("OpenMeteo: Disabled")
+		}
+	} else if newEnabled {
+		// Check if other settings changed
+		if oldInterval != newConfig.OpenMeteo.Interval ||
+			oldLat != newConfig.OpenMeteo.Latitude ||
+			oldLon != newConfig.OpenMeteo.Longitude {
+			log.Printf("OpenMeteo: Configuration updated (interval: %s, location: %.4f, %.4f)",
+				newConfig.OpenMeteo.Interval,
+				newConfig.OpenMeteo.Latitude,
+				newConfig.OpenMeteo.Longitude)
+		}
+	}
+}
 
-	// Then fetch on interval
-	ticker := time.NewTicker(parseDuration(config.OpenMeteo.Interval))
+// startOpenMeteoPoller starts a goroutine that periodically fetches OpenMeteo data
+// with support for dynamic configuration updates
+func startOpenMeteoPoller(ctx context.Context, config *Config) {
+	// Initialize the shared config
+	updateOpenMeteoConfig(config)
+
+	if !config.OpenMeteo.Enabled {
+		log.Println("OpenMeteo API integration is disabled (will start if enabled via config reload)")
+	} else {
+		log.Printf("Starting OpenMeteo API poller (interval: %s, location: %.4f, %.4f)",
+			config.OpenMeteo.Interval,
+			config.OpenMeteo.Latitude,
+			config.OpenMeteo.Longitude)
+	}
+
+	// Fetch immediately on startup if enabled
+	if config.OpenMeteo.Enabled {
+		fetchOpenMeteoData(ctx)
+	}
+
+	// Dynamic ticker that respects configuration changes
+	var ticker *time.Ticker
+	var tickerC <-chan time.Time
+
+	// Initialize ticker with current interval
+	openMeteoConfigMu.RLock()
+	currentInterval := parseDuration(openMeteoConfig.OpenMeteo.Interval)
+	openMeteoConfigMu.RUnlock()
+	ticker = time.NewTicker(currentInterval)
+	tickerC = ticker.C
 	defer ticker.Stop()
+
+	// Track last interval to detect changes
+	lastInterval := currentInterval
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			fetchOpenMeteoData(ctx, config)
+		case <-tickerC:
+			// Check if interval changed and recreate ticker if needed
+			openMeteoConfigMu.RLock()
+			cfg := openMeteoConfig
+			newInterval := parseDuration(cfg.OpenMeteo.Interval)
+			openMeteoConfigMu.RUnlock()
+
+			if newInterval != lastInterval {
+				ticker.Stop()
+				ticker = time.NewTicker(newInterval)
+				tickerC = ticker.C
+				lastInterval = newInterval
+				log.Printf("OpenMeteo: Polling interval updated to %s", cfg.OpenMeteo.Interval)
+			}
+
+			// Fetch data if enabled
+			fetchOpenMeteoData(ctx)
 		}
 	}
 }
@@ -419,6 +496,7 @@ func main() {
 		defer wg.Done()
 		watchConfigFile(ctx, func(newConfig *Config) {
 			loadKnownGovees(newConfig)
+			updateOpenMeteoConfig(newConfig)
 		})
 	}()
 
@@ -446,14 +524,12 @@ func main() {
 		}
 	}()
 
-	// Start OpenMeteo API poller if enabled
-	if config.OpenMeteo.Enabled {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			startOpenMeteoPoller(ctx, config)
-		}()
-	}
+	// Start OpenMeteo API poller (always start so it can be dynamically enabled)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		startOpenMeteoPoller(ctx, config)
+	}()
 
 	// Serve static files with correct MIME types
 	mux := http.NewServeMux()
