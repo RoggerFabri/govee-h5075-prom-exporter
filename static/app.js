@@ -496,6 +496,7 @@ async function fetchMetrics() {
         const text = await response.text();
         const rooms = {};
         const deviceGroups = CONFIG.DEVICE_GROUPS || {};
+        const weatherData = {}; // Store OpenMeteo data
 
         // Update connection status
         lastSuccessfulFetch = Date.now();
@@ -504,10 +505,19 @@ async function fetchMetrics() {
         // Update timestamp
         updateTimestamp();
 
-        // Parse metrics text into room data
+        // Parse metrics text into room data and weather data
         text.split('\n').forEach(line => {
             if (!line || line.startsWith('#')) return; // Skip empty lines and comments
             
+            // Parse OpenMeteo metrics (no labels, just metric name and value)
+            const weatherMatch = line.match(/openmeteo_(\w+)\s+([-\d.]+)/);
+            if (weatherMatch) {
+                const [, metric, value] = weatherMatch;
+                weatherData[metric] = parseFloat(value);
+                return;
+            }
+            
+            // Parse Govee sensor metrics
             const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([-\d.]+)/);
             if (!match) return;
             
@@ -519,6 +529,17 @@ async function fetchMetrics() {
             }
             rooms[name][metric] = parseFloat(value);
         });
+        
+        // Add OpenMeteo as a special "device" if data exists
+        if (weatherData.temperature !== undefined || weatherData.humidity !== undefined) {
+            rooms['Outdoor'] = {
+                group: 'Outdoor Weather',
+                temperature: weatherData.temperature,
+                humidity: weatherData.humidity,
+                // No battery for weather API data
+                isWeatherStation: true
+            };
+        }
 
         // Store previous values for comparison
         const previousValues = {};
@@ -554,6 +575,13 @@ async function fetchMetrics() {
 
         // Get sorted group names
         let sortedGroupNames = Object.keys(groupedRooms).sort();
+        
+        // Always put "Outdoor Weather" first if it exists
+        const weatherGroupIndex = sortedGroupNames.indexOf('Outdoor Weather');
+        if (weatherGroupIndex > -1) {
+            sortedGroupNames.splice(weatherGroupIndex, 1);
+            sortedGroupNames.unshift('Outdoor Weather');
+        }
         
         // Apply saved order if it exists
         if (groupOrder.length > 0) {
@@ -617,16 +645,28 @@ async function fetchMetrics() {
             const cardsHTML = roomsInGroup.map(({ name, data }) => {
                 const prev = previousValues[name] || {};
                 
+                // Check if this is a weather station
+                const isWeatherStation = data.isWeatherStation || false;
+                const cardClass = isWeatherStation ? 'card weather-station' : 'card';
+                
                 // Create compact metrics for mobile
                 const compactMetrics = createCompactMetrics(data);
                 
+                // Optional weather station footer
+                const weatherFooter = isWeatherStation ? `
+                    <div class="card-footer">
+                        <small>Source: Open-Meteo API</small>
+                    </div>
+                ` : '';
+                
                 return `
-                    <div class="card" data-room="${escapeHtml(name)}">
+                    <div class="${cardClass}" data-room="${escapeHtml(name)}">
                         <h2>${escapeHtml(name)}</h2>
                         ${compactMetrics}
                         ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
                         ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
                         ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
+                        ${weatherFooter}
                     </div>
                 `;
             }).join('');
@@ -644,7 +684,7 @@ async function fetchMetrics() {
                                 <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                             </svg>
                         </span>
-                        <span class="group-name">${escapeHtml(groupName)} <span class="group-count">[${roomsInGroup.length}]</span></span>
+                        <span class="group-name">${escapeHtml(groupName)} ${groupName !== 'Outdoor Weather' ? `<span class="group-count">[${roomsInGroup.length}]</span>` : ''}</span>
                         <div class="group-stats">
                             ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
                             ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}

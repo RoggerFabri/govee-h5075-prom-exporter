@@ -771,4 +771,88 @@ body {
         transform: scale(1);
         opacity: 0;
     }
+}
+
+/* ============================================
+   OpenMeteo Weather Station Styling
+   ============================================ */
+
+/* CSS Variables for weather colors - Blue with transparency */
+:root {
+    --weather-accent: rgba(59, 130, 246, 0.3);
+    --weather-accent-light: rgba(96, 165, 250, 0.25);
+    --weather-bg: rgba(59, 130, 246, 0.015);
+}
+
+[data-theme="dark"] {
+    --weather-accent: rgba(96, 165, 250, 0.35);
+    --weather-accent-light: rgba(147, 197, 253, 0.3);
+    --weather-bg: rgba(96, 165, 250, 0.025);
+}
+
+/* Weather station card - Very subtle styling with transparency */
+.card.weather-station {
+    border-left: 2px solid var(--weather-accent);
+    background: var(--weather-bg);
+}
+
+.card.weather-station .card-footer {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    opacity: 0.7;
+}
+
+/* Weather group always shows first */
+.device-group[data-group="Outdoor Weather"] {
+    order: -1;
+}
+
+/* Weather group header styling - Blue with transparency */
+.device-group[data-group="Outdoor Weather"] .group-header {
+    background: linear-gradient(135deg, 
+        rgba(59, 130, 246, 0.04), 
+        rgba(59, 130, 246, 0.06));
+    border-left: 2px solid var(--weather-accent);
+}
+
+[data-theme="dark"] .device-group[data-group="Outdoor Weather"] .group-header {
+    background: linear-gradient(135deg, 
+        rgba(96, 165, 250, 0.05), 
+        rgba(96, 165, 250, 0.08));
+}
+
+.device-group[data-group="Outdoor Weather"] .group-name {
+    color: var(--text-primary);
+}
+
+/* Weather group stats (average display) */
+.device-group[data-group="Outdoor Weather"] .group-stats {
+    color: var(--text-primary);
+}
+
+.device-group[data-group="Outdoor Weather"] .group-stat svg {
+    opacity: 0.7;
+}
+
+/* Weather group toggle icon - White for visibility */
+.device-group[data-group="Outdoor Weather"] .group-toggle svg {
+    fill: white;
+    opacity: 0.9;
+}
+
+/* Weather group drag handle - White for visibility */
+.device-group[data-group="Outdoor Weather"] .group-drag-handle svg {
+    fill: white;
+    opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card.weather-station .card-footer {
+        font-size: 0.7rem;
+    }
 } 
