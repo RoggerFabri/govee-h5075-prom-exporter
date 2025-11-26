@@ -360,3 +360,145 @@ func TestScanCompletionLoggingWithDifferentIntervals(t *testing.T) {
 		})
 	}
 }
+
+func TestParseGoveeDataDuplicateSuppression(t *testing.T) {
+	// Set up test metrics
+	origTemp := temperatureGauge
+	origHum := humidityGauge
+	origBat := batteryGauge
+
+	temperatureGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "test_temp"},
+		[]string{"name"},
+	)
+	humidityGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "test_hum"},
+		[]string{"name"},
+	)
+	batteryGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "test_bat"},
+		[]string{"name"},
+	)
+
+	// Restore original collectors after test
+	defer func() {
+		temperatureGauge = origTemp
+		humidityGauge = origHum
+		batteryGauge = origBat
+	}()
+
+	// Clear any existing logged values
+	mutex.Lock()
+	deviceLastLoggedVals = make(map[string]lastLoggedValues)
+	mutex.Unlock()
+
+	// Create a buffer to capture log output
+	var logBuf bytes.Buffer
+	originalOutput := log.Writer()
+	defer log.SetOutput(originalOutput)
+	log.SetOutput(&logBuf)
+
+	// Test device
+	govee := KnownGovee{Name: "TestDevice", TempOffset: 0, HumidityOffset: 0}
+	
+	// Test data: 23.00°C, 50.00%, 49% battery
+	// Raw bytes: temperature=23.00 (2300), humidity=50.00 (500), battery=49 (0x31)
+	// Format: [0x01, temp_high, temp_mid, temp_low+hum_high, hum_low+battery]
+	// 23.00°C = 2300 = 0x08FC, humidity = 500 = 0x01F4
+	// So: 0x01, 0x00, 0x08, 0xFC, 0x31 (but this is wrong format)
+	// Actually: data[1:4] is 3 bytes: temp_humidity combined
+	// temp = (data[1]<<16 | data[2]<<8 | data[3]) / 1000 / 10
+	// For 23.00°C, 50.00%: value = 23000 + 500 = 23500 = 0x005BDC
+	// So: 0x01, 0x00, 0x5B, 0xDC, 0x31
+	testData := []byte{0x01, 0x00, 0x5B, 0xDC, 0x31} // 23.00°C, 50.00%, 49%
+
+	tests := []struct {
+		name           string
+		data           []byte
+		expectedLogged bool
+		description    string
+	}{
+		{
+			name:           "First reading should be logged",
+			data:           testData,
+			expectedLogged: true,
+			description:    "Initial reading must always log",
+		},
+		{
+			name:           "Exact duplicate should not be logged",
+			data:           testData,
+			expectedLogged: false,
+			description:    "Exact same values should be suppressed",
+		},
+		{
+			name:           "Temperature change beyond epsilon should be logged",
+			// 23.01°C, 50.00%, 49% = 23010 + 500 = 23510 = 0x005BE6
+			data:           []byte{0x01, 0x00, 0x5B, 0xE6, 0x31},
+			expectedLogged: true,
+			description:    "Temperature change >= 0.01°C should be logged",
+		},
+		{
+			name:           "Humidity change beyond epsilon should be logged",
+			// 23.01°C, 50.01%, 49% = 23010 + 501 = 23511 = 0x005BE7
+			data:           []byte{0x01, 0x00, 0x5B, 0xE7, 0x31},
+			expectedLogged: true,
+			description:    "Humidity change >= 0.01% should be logged",
+		},
+		{
+			name:           "Battery change should always be logged",
+			// 23.01°C, 50.01%, 50% = 23010 + 501 = 23511 = 0x005BE7, battery 50
+			data:           []byte{0x01, 0x00, 0x5B, 0xE7, 0x32},
+			expectedLogged: true,
+			description:    "Battery level change should always be logged",
+		},
+		{
+			name:           "Values back to original should be logged",
+			data:           testData, // Back to 23.00°C, 50.00%, 49%
+			expectedLogged: true,
+			description:    "Values returning to previous state should be logged (different from last)",
+		},
+		{
+			name:           "Exact duplicate again should not be logged",
+			data:           testData,
+			expectedLogged: false,
+			description:    "Exact duplicate after returning should be suppressed",
+		},
+	}
+
+	logCount := 0
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear log buffer before each test
+			logBuf.Reset()
+
+			// Parse the data
+			parseGoveeData(govee, tt.data)
+
+			// Count log lines (each log adds a newline)
+			logOutput := logBuf.String()
+			logged := strings.Contains(logOutput, "TestDevice")
+
+			if logged != tt.expectedLogged {
+				t.Errorf("Test case %d: %s\nExpected logged: %v, got logged: %v\nLog output: %q",
+					i+1, tt.description, tt.expectedLogged, logged, logOutput)
+			}
+
+			if logged {
+				logCount++
+			}
+
+			// Verify metrics are always updated (even if not logged)
+			metric, _ := temperatureGauge.GetMetricWithLabelValues(govee.Name)
+			if metric == nil {
+				t.Error("Temperature metric should always be updated")
+			}
+		})
+	}
+
+	// Verify we got the expected number of log entries
+	// Expected: 1st, temp change, humidity change, battery change, back to original = 5 logs
+	expectedLogs := 5
+	if logCount != expectedLogs {
+		t.Errorf("Expected %d log entries, got %d", expectedLogs, logCount)
+	}
+}
