@@ -8,23 +8,26 @@ LABEL maintainer="Rogger Fabri" \
       description="Govee H5075 Prometheus Exporter" \
       version="1.0.0"
 
-# Security updates and create non-root user
-RUN apk update && \
-    apk upgrade && \
-    apk add --no-cache ca-certificates tzdata && \
+# Install packages and create non-root user
+# Split into separate layers for better caching:
+# 1. Package installation (cached if packages don't change)
+# 2. User creation (always cached)
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache --update-cache ca-certificates tzdata && \
     addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
-    # Create directory with correct permissions
-    mkdir -p /app && \
+    adduser -S appuser -G appgroup
+
+# Create directory with correct permissions (separate layer for better caching)
+RUN mkdir -p /app && \
     chown -R appuser:appgroup /app
 
 # Set the working directory in the runtime container
 WORKDIR /app
 
 # Copy the pre-built application binary and static files
-COPY govee_exporter .
-COPY static/. ./static/
-RUN chown -R appuser:appgroup /app
+# Note: These layers can't be cached as the binary changes each build
+COPY --chown=appuser:appgroup govee_exporter .
+COPY --chown=appuser:appgroup static/. ./static/
 
 # Switch to non-root user
 USER appuser
