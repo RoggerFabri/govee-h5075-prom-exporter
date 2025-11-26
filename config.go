@@ -82,7 +82,7 @@ const (
 	defaultScanInterval       = "15s"
 	defaultScanDuration       = "15s"
 	defaultOpenMeteoEnabled   = false
-	defaultOpenMeteoInterval  = "5m"
+	defaultOpenMeteoInterval  = "15m"
 	defaultOpenMeteoLatitude  = 53.35
 	defaultOpenMeteoLongitude = -6.26
 )
@@ -221,7 +221,7 @@ func initConfig() (*Config, []ConfigSource, error) {
 	return &config, sources, nil
 }
 
-// watchConfigFile monitors the config.yaml file for changes and reloads device configuration
+// watchConfigFile monitors the config.yaml file for changes and reloads configuration
 // The onReload callback is called when configuration is successfully reloaded
 func watchConfigFile(ctx context.Context, onReload func(*Config)) {
 	// Check if config.yaml exists
@@ -273,7 +273,7 @@ func watchConfigFile(ctx context.Context, onReload func(*Config)) {
 				}
 
 				debounceTimer = time.AfterFunc(debounceDuration, func() {
-					log.Println("Config file changed, reloading device configuration...")
+					log.Println("Config file changed, reloading configuration...")
 
 					// Reload configuration
 					newConfig, _, err := initConfig()
@@ -286,7 +286,7 @@ func watchConfigFile(ctx context.Context, onReload func(*Config)) {
 					if onReload != nil {
 						onReload(newConfig)
 					}
-					log.Println("Device configuration reloaded successfully")
+					log.Println("Configuration reloaded successfully")
 				})
 			}
 

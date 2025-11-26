@@ -9,6 +9,7 @@ The Govee H5075 Prometheus Exporter now includes optional OpenMeteo API integrat
 - ✅ Automatic Prometheus metrics export
 - ✅ Independent from Bluetooth sensor monitoring
 - ✅ Graceful error handling with logging
+- ✅ **Hot-reload support** - configuration changes applied without restart
 
 ## Configuration
 
@@ -37,10 +38,12 @@ export OPENMETEO_LONGITUDE=-6.26
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable/disable OpenMeteo API integration |
-| `interval` | duration | `5m` | How often to fetch weather data (e.g., `1m`, `5m`, `15m`) |
-| `latitude` | float | `53.35` | Latitude for weather location (decimal degrees) |
-| `longitude` | float | `-6.26` | Longitude for weather location (decimal degrees) |
+| `enabled` | boolean | `false` | Enable/disable OpenMeteo API integration (hot-reload supported) |
+| `interval` | duration | `5m` | How often to fetch weather data (e.g., `1m`, `5m`, `15m`) (hot-reload supported) |
+| `latitude` | float | `53.35` | Latitude for weather location (decimal degrees) (hot-reload supported) |
+| `longitude` | float | `-6.26` | Longitude for weather location (decimal degrees) (hot-reload supported) |
+
+**Note:** All OpenMeteo configuration changes are automatically detected and applied without requiring a restart.
 
 ## Prometheus Metrics
 
@@ -95,6 +98,54 @@ openmeteo_humidity 65
 openmeteo_temperature 15.3
 ```
 
+## Hot-Reload Configuration Changes
+
+OpenMeteo configuration supports hot-reload - changes to `config.yaml` are automatically detected and applied without restart:
+
+**Change location:**
+```yaml
+openmeteo:
+  enabled: true
+  interval: 5m
+  latitude: 40.7128    # Changed from 53.35
+  longitude: -74.0060  # Changed from -6.26
+```
+
+**Change polling interval:**
+```yaml
+openmeteo:
+  enabled: true
+  interval: 15m        # Changed from 5m
+  latitude: 53.35
+  longitude: -6.26
+```
+
+**Enable/Disable dynamically:**
+```yaml
+openmeteo:
+  enabled: false       # Changed from true - stops fetching immediately
+  interval: 5m
+  latitude: 53.35
+  longitude: -6.26
+```
+
+**Log output on config change:**
+```
+Config file changed, reloading device configuration...
+Device configuration reloaded successfully
+OpenMeteo: Configuration updated (interval: 15m, location: 40.7128, -74.0060)
+```
+
+**When dynamically enabling:**
+```
+OpenMeteo: Enabled (interval: 5m, location: 53.3500, -6.2600)
+```
+
+**When dynamically disabling:**
+```
+OpenMeteo: Disabled
+```
+
 ## Logging
 
 When enabled, OpenMeteo will log:
@@ -144,7 +195,17 @@ Failed to fetch OpenMeteo data: context deadline exceeded
 
 ### Disable OpenMeteo
 
-Set `enabled: false` in config or:
+**Option 1: Using hot-reload (no restart required)**
+
+Edit `config.yaml`:
+```yaml
+openmeteo:
+  enabled: false
+```
+
+Changes take effect within ~500ms.
+
+**Option 2: Using environment variables (requires restart)**
 
 ```bash
 export OPENMETEO_ENABLED=false

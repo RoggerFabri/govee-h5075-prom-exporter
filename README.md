@@ -10,7 +10,7 @@ A **Prometheus exporter** for **Govee H5075 temperature & humidity sensors** tha
 - **Applies user-defined temperature & humidity offsets**.
 - **Exports metrics to Prometheus** on a configurable **HTTP port**.
 - **Removes stale metrics** if a device is inactive.
-- **Hot-reload configuration** - device changes are automatically detected without restart.
+- **Hot-reload configuration** - device and OpenMeteo changes are automatically detected without restart.
 - **Graceful shutdown** with proper context handling for all goroutines.
 
 ---
@@ -183,7 +183,7 @@ devices:
 - **Offsets** are optional and default to 0.0 if not specified
 - **Temperature offsets** are in °C
 - **Humidity offsets** are in %
-- **Hot-reload**: Changes to device configuration are automatically detected and applied within ~500ms without restarting the service
+- **Hot-reload**: Changes to device and OpenMeteo configuration are automatically detected and applied within ~500ms without restarting the service
 
 ---
 
@@ -363,7 +363,8 @@ The dashboard automatically remembers your theme preference (dark/light) between
   docker logs -f govee-h5075-prom-exporter | grep "Config file"
   ```
 - You should see: `Config file watcher: Monitoring config.yaml for changes`
-- After editing `config.yaml`, you should see: `Device configuration reloaded successfully`
+- After editing `config.yaml`, you should see: `Configuration reloaded successfully`
+- For OpenMeteo changes, you should also see: `OpenMeteo: Configuration updated (interval: 5m, location: 53.3500, -6.2600)`
 - If hot-reload is disabled, restart the container:
   ```sh
   docker-compose restart
