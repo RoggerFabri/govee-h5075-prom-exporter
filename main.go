@@ -362,7 +362,24 @@ func fetchOpenMeteoData(ctx context.Context) {
 	openMeteoTemperatureGauge.Set(temp)
 	openMeteoHumidityGauge.Set(float64(humidity))
 
-	log.Printf("OpenMeteo | Temp: %5.2f°C | Humidity: %5.2f%%", temp, float64(humidity))
+	// Find the longest name in knownGovees for consistent padding
+	maxNameLength := 0
+	mutex.Lock()
+	for _, g := range knownGovees {
+		if len(g.Name) > maxNameLength {
+			maxNameLength = len(g.Name)
+		}
+	}
+	mutex.Unlock()
+
+	// Format the log message with padding to match sensor logs
+	logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%%",
+		maxNameLength,
+		"OpenMeteo",
+		temp,
+		float64(humidity))
+
+	log.Println(logMsg)
 }
 
 // updateOpenMeteoConfig safely updates the OpenMeteo configuration
