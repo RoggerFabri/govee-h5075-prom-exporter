@@ -806,10 +806,7 @@ body {
     opacity: 0.7;
 }
 
-/* Weather group always shows first */
-.device-group[data-group="Outdoor Weather"] {
-    order: -1;
-}
+/* Weather group can be reordered (removed order: -1 to allow drag-and-drop) */
 
 /* Weather group header styling - Blue with transparency */
 .device-group[data-group="Outdoor Weather"] .group-header {

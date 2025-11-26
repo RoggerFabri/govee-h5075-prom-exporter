@@ -576,13 +576,6 @@ async function fetchMetrics() {
         // Get sorted group names
         let sortedGroupNames = Object.keys(groupedRooms).sort();
         
-        // Always put "Outdoor Weather" first if it exists
-        const weatherGroupIndex = sortedGroupNames.indexOf('Outdoor Weather');
-        if (weatherGroupIndex > -1) {
-            sortedGroupNames.splice(weatherGroupIndex, 1);
-            sortedGroupNames.unshift('Outdoor Weather');
-        }
-        
         // Apply saved order if it exists
         if (groupOrder.length > 0) {
             // Filter out groups that no longer exist and add new groups at the end
