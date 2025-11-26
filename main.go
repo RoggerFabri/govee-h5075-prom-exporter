@@ -77,6 +77,8 @@ var (
 	lastUpdateTime       = make(map[string]time.Time)
 	deviceLastLoggedVals = make(map[string]lastLoggedValues)
 	mutex                = &sync.Mutex{}
+	currentConfig        *Config
+	currentConfigMu      = &sync.RWMutex{}
 	openMeteoConfig      *Config
 	openMeteoConfigMu    = &sync.RWMutex{}
 	lastOpenMeteoValues  *lastLoggedValues
@@ -555,6 +557,11 @@ func main() {
 	// Create a WaitGroup to track all goroutines
 	var wg sync.WaitGroup
 
+	// Store initial config in shared variable
+	currentConfigMu.Lock()
+	currentConfig = config
+	currentConfigMu.Unlock()
+
 	// Start configuration file watcher for hot-reload
 	wg.Add(1)
 	go func() {
@@ -562,6 +569,10 @@ func main() {
 		watchConfigFile(ctx, func(newConfig *Config) {
 			loadKnownGovees(newConfig)
 			updateOpenMeteoConfig(newConfig)
+			// Update shared config for /config.js handler
+			currentConfigMu.Lock()
+			currentConfig = newConfig
+			currentConfigMu.Unlock()
 		})
 	}()
 
@@ -609,6 +620,11 @@ func main() {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Header().Set("Cache-Control", "no-cache")
 
+		// Get current config (supports hot-reload)
+		currentConfigMu.RLock()
+		cfg := currentConfig
+		currentConfigMu.RUnlock()
+
 		// Build device groups map
 		mutex.Lock()
 		deviceGroups := make(map[string]string)
@@ -635,13 +651,13 @@ window.DASHBOARD_CONFIG = {
     BATTERY_LOW_THRESHOLD: %v,
     DEVICE_GROUPS: %s
 };`,
-			config.Thresholds.Temperature.Min,
-			config.Thresholds.Temperature.Max,
-			config.Thresholds.Temperature.Low,
-			config.Thresholds.Temperature.High,
-			config.Thresholds.Humidity.Low,
-			config.Thresholds.Humidity.High,
-			config.Thresholds.Battery.Low,
+			cfg.Thresholds.Temperature.Min,
+			cfg.Thresholds.Temperature.Max,
+			cfg.Thresholds.Temperature.Low,
+			cfg.Thresholds.Temperature.High,
+			cfg.Thresholds.Humidity.Low,
+			cfg.Thresholds.Humidity.High,
+			cfg.Thresholds.Battery.Low,
 			string(deviceGroupsJSON),
 		)
 		w.Write([]byte(configJS))
