@@ -2,13 +2,15 @@
 # Provides convenient commands for development and deployment
 # Compatible with Windows, macOS, and Linux
 
-.PHONY: help mock-server docker-build docker-run docker-up docker-down install-deps clean test
+.PHONY: help run build mock-server docker-build docker-run docker-up docker-down install-deps clean test
 
 # Default target
 help: ## Show this help message
 	@echo Govee H5075 Prometheus Exporter - Available Commands:
 	@echo.
 	@echo   help                 Show this help message
+	@echo   run                  Run the Go application (builds and runs executable)
+	@echo   build                Build the Go binary
 	@echo   mock-server          Start development server with mock data (localhost:5000)
 	@echo   install-deps         Install Python dependencies for mock server
 	@echo   test                 Run all Go tests
@@ -19,11 +21,23 @@ help: ## Show this help message
 	@echo   clean                Clean up build artifacts and stop containers
 	@echo.
 	@echo Quick Start:
+	@echo   make run             Build and run the Go application
 	@echo   make mock-server     Start development server with mock data
 	@echo   make docker-build    Build Docker image
 	@echo   make docker-up       Start production server with Docker Compose
 
 # Development Commands
+run: build ## Run the Go application (builds first, then runs executable)
+	@echo Running Go application...
+	@echo UI: http://localhost:8080
+	@echo Metrics: http://localhost:8080/metrics
+	@echo Press Ctrl+C to stop
+	.\govee-exporter.exe
+
+build: ## Build the Go binary
+	@echo Building Go binary...
+	go build -o govee-exporter.exe .
+	@echo Binary created: govee-exporter.exe
 mock-server: ## Start the mock server for development (localhost:5000)
 	@echo Starting mock server...
 	@echo UI: http://localhost:5000
