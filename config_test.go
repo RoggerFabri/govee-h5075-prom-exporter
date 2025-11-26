@@ -130,4 +130,3 @@ func TestConfigWatcherContextCancellation(t *testing.T) {
 		t.Fatal("Config watcher did not stop after context cancellation")
 	}
 }
-
