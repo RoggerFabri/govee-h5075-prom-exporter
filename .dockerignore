@@ -1,0 +1,38 @@
+# Exclude source files (using prebuilt binary)
+*.go
+*_test.go
+
+# Exclude documentation
+*.md
+LICENSE.md
+
+# Exclude other Dockerfiles (only need Dockerfile.prebuilt)
+Dockerfile
+Dockerfile.builder
+Dockerfile.README.md
+
+# Exclude documentation files
+*.md
+
+# Exclude build artifacts
+*.exe
+
+# Exclude test and development files
+mock_server.py
+docker-compose.yaml
+Makefile
+config.yaml
+
+# Exclude Git files
+.git
+.gitignore
+
+# Exclude CI/CD files
+.github
+
+# Exclude Go module cache (not needed for prebuilt)
+go.mod
+go.sum
+
+# Keep: govee_exporter (the binary), static/, Dockerfile.prebuilt
+
