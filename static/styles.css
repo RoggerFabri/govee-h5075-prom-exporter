@@ -173,6 +173,61 @@ body {
     opacity: 1;
 }
 
+/* Layout toggle button */
+.layout-toggle {
+    position: relative;
+}
+
+.layout-toggle .icon {
+    position: absolute;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    display: flex;
+}
+
+/* Hide all icons by default */
+.layout-toggle .desktop,
+.layout-toggle .mobile,
+.layout-toggle .responsive {
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+/* Auto mode: show responsive icon */
+.layout-toggle.layout-auto .responsive {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.layout-toggle.layout-auto .desktop,
+.layout-toggle.layout-auto .mobile {
+    transform: translateY(-100%);
+    opacity: 0;
+}
+
+/* Mobile mode: show mobile icon (indicates current mode) */
+.layout-toggle.layout-mobile .mobile {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.layout-toggle.layout-mobile .desktop,
+.layout-toggle.layout-mobile .responsive {
+    transform: translateY(100%);
+    opacity: 0;
+}
+
+/* Desktop mode: show desktop icon (indicates current mode) */
+.layout-toggle.layout-desktop .desktop {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.layout-toggle.layout-desktop .mobile,
+.layout-toggle.layout-desktop .responsive {
+    transform: translateY(-100%);
+    opacity: 0;
+}
+
 .container {
     display: flex;
     flex-direction: column;
@@ -847,9 +902,152 @@ body {
     opacity: 0.7;
 }
 
-/* Responsive adjustments */
+/* Forced layout modes */
+/* Force desktop layout regardless of screen size */
+[data-layout="desktop"] body {
+    padding: 20px !important;
+    padding-top: 40px !important;
+    padding-bottom: 20px !important;
+}
+
+[data-layout="desktop"] .container {
+    gap: 30px !important;
+}
+
+[data-layout="desktop"] .group-content {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    gap: 20px !important;
+}
+
+[data-layout="desktop"] .group-header {
+    padding: 16px 20px !important;
+    font-size: 1rem !important;
+    border: none !important;
+    border-left: 4px solid var(--primary-color) !important;
+}
+
+[data-layout="desktop"] .card {
+    display: block !important;
+    padding: 20px !important;
+    margin: 0 !important;
+    width: auto !important;
+    border-radius: 16px !important;
+}
+
+[data-layout="desktop"] .card h2 {
+    font-size: 1.1rem !important;
+    margin-bottom: 20px !important;
+    display: block !important;
+}
+
+[data-layout="desktop"] .card .metrics-compact {
+    display: none !important;
+}
+
+[data-layout="desktop"] .metric {
+    display: block !important;
+}
+
+[data-layout="desktop"] .card.weather-station .card-footer {
+    display: block !important;
+}
+
+/* Force mobile layout regardless of screen size */
+[data-layout="mobile"] .container {
+    grid-template-columns: 1fr !important;
+}
+
+[data-layout="mobile"] .group-content {
+    grid-template-columns: 1fr !important;
+}
+
+[data-layout="mobile"] .card {
+    padding: 12px 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+[data-layout="mobile"] .card h2 {
+    margin-bottom: 0 !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 1 !important;
+}
+
+[data-layout="mobile"] .card .metrics-compact {
+    display: flex !important;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    opacity: 0.75;
+    font-weight: 500;
+    padding: 4px 6px;
+    background-color: rgba(var(--border-color-rgb), 0.15);
+    border-radius: 8px;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric svg {
+    opacity: 0.7;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+[data-layout="mobile"] .metric {
+    display: none !important;
+}
+
+[data-layout="mobile"] .card.weather-station .card-footer {
+    display: none;
+}
+
+/* Warning colors for forced mobile layout */
+[data-layout="mobile"] .metrics-compact .compact-metric.temp-low svg {
+    fill: #2196F3;
+    opacity: 1;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric.temp-high svg {
+    fill: #FF5722;
+    opacity: 1;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric.humidity-low svg {
+    fill: #FFC107;
+    opacity: 1;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric.humidity-high svg {
+    fill: #2196F3;
+    opacity: 1;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric.battery-low svg {
+    fill: #FF5722;
+    opacity: 1;
+}
+
+/* Responsive adjustments (only apply in auto mode) */
 @media (max-width: 768px) {
-    .card.weather-station .card-footer {
+    [data-layout="auto"] .card.weather-station .card-footer {
         display: none; /* Hide footer on mobile to avoid layout issues */
     }
 } 

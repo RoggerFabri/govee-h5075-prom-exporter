@@ -79,6 +79,38 @@ function toggleTheme() {
     localStorage.setItem('theme', theme);
 }
 
+// Layout handling (desktop/mobile)
+function toggleLayout() {
+    const currentLayout = document.documentElement.getAttribute('data-layout');
+    let newLayout;
+    
+    if (currentLayout === 'mobile') {
+        newLayout = 'desktop';
+    } else if (currentLayout === 'desktop') {
+        newLayout = 'auto';
+    } else {
+        newLayout = 'mobile';
+    }
+    
+    document.documentElement.setAttribute('data-layout', newLayout);
+    localStorage.setItem('layout', newLayout);
+    
+    // Update button icons visibility
+    updateLayoutIcon();
+}
+
+function updateLayoutIcon() {
+    const layout = document.documentElement.getAttribute('data-layout') || 'auto';
+    const button = document.querySelector('.layout-toggle');
+    
+    if (button) {
+        // Remove all state classes
+        button.classList.remove('layout-mobile', 'layout-desktop', 'layout-auto');
+        // Add current state class
+        button.classList.add(`layout-${layout}`);
+    }
+}
+
 // Progress bar animation
 function startProgressBar() {
     const progressBar = document.getElementById('refreshProgress');
@@ -912,6 +944,11 @@ async function manualRefresh() {
 document.addEventListener('DOMContentLoaded', () => {
     // Set initial theme
     document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
+    
+    // Set initial layout (auto by default)
+    const savedLayout = localStorage.getItem('layout') || 'auto';
+    document.documentElement.setAttribute('data-layout', savedLayout);
+    updateLayoutIcon();
     
     // Load persisted state
     loadPersistedState();
