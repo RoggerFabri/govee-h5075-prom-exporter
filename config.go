@@ -76,11 +76,15 @@ type ConfigSource struct {
 
 // Default configuration values
 const (
-	defaultPort            = "8080"
-	defaultRefreshInterval = "30s"
-	defaultStaleThreshold  = "5m"
-	defaultScanInterval    = "15s"
-	defaultScanDuration    = "15s"
+	defaultPort               = "8080"
+	defaultRefreshInterval    = "30s"
+	defaultStaleThreshold     = "5m"
+	defaultScanInterval       = "15s"
+	defaultScanDuration       = "15s"
+	defaultOpenMeteoEnabled   = false
+	defaultOpenMeteoInterval  = "5m"
+	defaultOpenMeteoLatitude  = 53.35
+	defaultOpenMeteoLongitude = -6.26
 )
 
 // Default threshold values
@@ -111,6 +115,10 @@ func initConfig() (*Config, []ConfigSource, error) {
 	viper.SetDefault("server.port", defaultPort)
 	viper.SetDefault("bluetooth.scanInterval", defaultScanInterval)
 	viper.SetDefault("bluetooth.scanDuration", defaultScanDuration)
+	viper.SetDefault("openmeteo.enabled", defaultOpenMeteoEnabled)
+	viper.SetDefault("openmeteo.interval", defaultOpenMeteoInterval)
+	viper.SetDefault("openmeteo.latitude", defaultOpenMeteoLatitude)
+	viper.SetDefault("openmeteo.longitude", defaultOpenMeteoLongitude)
 	viper.SetDefault("metrics.refreshInterval", defaultRefreshInterval)
 	viper.SetDefault("metrics.staleThreshold", defaultStaleThreshold)
 	viper.SetDefault("thresholds.temperature.min", defaultTemperatureMin)
