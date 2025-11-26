@@ -36,6 +36,14 @@ devices = {
     "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5, "group": "Outdoor"}  # Boundary: exactly 5% battery
 }
 
+# OpenMeteo mock data (simulates outdoor weather)
+# Set OPENMETEO_ENABLED=false to disable
+openmeteo_enabled = os.getenv('OPENMETEO_ENABLED', 'true').lower() in ['true', '1', 'yes']
+openmeteo_data = {
+    "temperature": 15.3,
+    "humidity": 65.0
+}
+
 # Lock for thread-safe updates
 lock = threading.Lock()
 
@@ -89,16 +97,46 @@ def update_mock_data():
         
         time.sleep(1)  # Update every second
 
+def update_openmeteo_data():
+    """Update OpenMeteo mock data with realistic outdoor variations"""
+    while True:
+        with lock:
+            # Outdoor temperature: larger variations than indoor (seasonal changes)
+            # Range: -10°C to 35°C
+            openmeteo_data["temperature"] = max(-10, min(35, 
+                openmeteo_data["temperature"] + random.uniform(-0.8, 0.8)))
+            
+            # Outdoor humidity: broader range than indoor
+            # Range: 20% to 95%
+            openmeteo_data["humidity"] = max(20, min(95, 
+                openmeteo_data["humidity"] + random.uniform(-2, 2)))
+        
+        time.sleep(5)  # Update every 5 seconds
+
 @app.route('/metrics')
 def metrics():
     """Serve mock metrics in Prometheus format"""
     with lock:
         lines = []
+        
+        # Govee sensor metrics
         for name, data in devices.items():
             lines.extend([
                 f'govee_h5075_temperature{{name="{name}"}} {data["temperature"]:.1f}',
                 f'govee_h5075_humidity{{name="{name}"}} {data["humidity"]:.1f}',
                 f'govee_h5075_battery{{name="{name}"}} {data["battery"]:.0f}'
+            ])
+        
+        # OpenMeteo metrics (only if enabled)
+        if openmeteo_enabled:
+            lines.extend([
+                '',
+                '# HELP openmeteo_temperature Temperature from OpenMeteo API',
+                '# TYPE openmeteo_temperature gauge',
+                f'openmeteo_temperature {openmeteo_data["temperature"]:.1f}',
+                '# HELP openmeteo_humidity Humidity from OpenMeteo API',
+                '# TYPE openmeteo_humidity gauge',
+                f'openmeteo_humidity {openmeteo_data["humidity"]:.1f}'
             ])
     
     return Response('\n'.join(lines), mimetype='text/plain')
@@ -150,7 +188,14 @@ if __name__ == '__main__':
     update_thread = threading.Thread(target=update_mock_data, daemon=True)
     update_thread.start()
     
-    print("""
+    # Start OpenMeteo update thread (if enabled)
+    if openmeteo_enabled:
+        openmeteo_thread = threading.Thread(target=update_openmeteo_data, daemon=True)
+        openmeteo_thread.start()
+    
+    openmeteo_status = "ENABLED" if openmeteo_enabled else "DISABLED"
+    
+    print(f"""
 Mock Govee H5075 Server Starting
 -------------------------------
 UI: http://localhost:5000
@@ -173,6 +218,10 @@ Edge case examples:
 - Outdoor Shed (multiple warnings: freezing temp + low battery)
 - Wine Cellar (boundary test: 0°C)
 - Storage Unit (boundary test: 5% battery)
+
+OpenMeteo Integration: {openmeteo_status}
+{f"- Outdoor Temperature: {openmeteo_data['temperature']:.1f}°C" if openmeteo_enabled else "- Set OPENMETEO_ENABLED=true to enable"}
+{f"- Outdoor Humidity: {openmeteo_data['humidity']:.1f}%" if openmeteo_enabled else ""}
 
 Press Ctrl+C to stop
 """)
