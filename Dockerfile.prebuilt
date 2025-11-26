@@ -12,8 +12,9 @@ LABEL maintainer="Rogger Fabri" \
 # Split into separate layers for better caching:
 # 1. Package installation (cached if packages don't change)
 # 2. User creation (always cached)
+# Note: Using --no-cache without --update-cache to maximize cache hits
 RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache --update-cache ca-certificates tzdata && \
+    apk add --no-cache ca-certificates tzdata && \
     addgroup -S appgroup && \
     adduser -S appuser -G appgroup
 

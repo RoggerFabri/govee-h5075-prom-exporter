@@ -7,6 +7,7 @@ on:
       - "main"
     paths-ignore:
       - 'README.md'
+      - 'OPENMETEO_INTEGRATION.md'
       - 'LICENSE.md'
       - '.gitignore'
       - '.github/workflows/*'
@@ -17,10 +18,10 @@ on:
       - "main"
     paths-ignore:
       - 'README.md'
+      - 'OPENMETEO_INTEGRATION.md'
       - 'LICENSE.md'
       - '.gitignore'
       - '.github/workflows/*'
-      - '.known_govees'
       - 'docker-compose.yml'
       - 'mock_server.py'
 
