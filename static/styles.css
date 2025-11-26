@@ -853,6 +853,6 @@ body {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .card.weather-station .card-footer {
-        font-size: 0.7rem;
+        display: none; /* Hide footer on mobile to avoid layout issues */
     }
 } 
