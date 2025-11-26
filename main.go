@@ -65,13 +65,21 @@ type KnownGovee struct {
 	HumidityOffset float64
 }
 
+type lastLoggedValues struct {
+	Temperature float64
+	Humidity    float64
+	Battery     int
+}
+
 var (
-	adapter           = bluetooth.DefaultAdapter
-	knownGovees       = make(map[string]KnownGovee)
-	lastUpdateTime    = make(map[string]time.Time)
-	mutex             = &sync.Mutex{}
-	openMeteoConfig   *Config
-	openMeteoConfigMu = &sync.RWMutex{}
+	adapter              = bluetooth.DefaultAdapter
+	knownGovees          = make(map[string]KnownGovee)
+	lastUpdateTime       = make(map[string]time.Time)
+	deviceLastLoggedVals = make(map[string]lastLoggedValues)
+	mutex                = &sync.Mutex{}
+	openMeteoConfig      *Config
+	openMeteoConfigMu    = &sync.RWMutex{}
+	lastOpenMeteoValues  *lastLoggedValues
 )
 
 // Application constants
@@ -276,25 +284,46 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 	temperature += govee.TempOffset
 	humidity += govee.HumidityOffset
 
-	// Format the log message with fixed-width fields
-	// Find the longest name in knownGovees for consistent padding
-	maxNameLength := 0
+	// Check if values have changed from last logged values
 	mutex.Lock()
-	for _, g := range knownGovees {
-		if len(g.Name) > maxNameLength {
-			maxNameLength = len(g.Name)
+	lastValues, exists := deviceLastLoggedVals[govee.Name]
+	valuesChanged := !exists ||
+		lastValues.Temperature != temperature ||
+		lastValues.Humidity != humidity ||
+		lastValues.Battery != batteryLevel
+
+	if valuesChanged {
+		// Update last logged values
+		deviceLastLoggedVals[govee.Name] = lastLoggedValues{
+			Temperature: temperature,
+			Humidity:    humidity,
+			Battery:     batteryLevel,
 		}
 	}
 	mutex.Unlock()
-	// Format the log message with padding
-	logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%% | Battery: %3d%%",
-		maxNameLength,
-		govee.Name,
-		temperature,
-		humidity,
-		batteryLevel)
 
-	log.Println(logMsg)
+	// Only log if values have changed
+	if valuesChanged {
+		// Format the log message with fixed-width fields
+		// Find the longest name in knownGovees for consistent padding
+		maxNameLength := 0
+		mutex.Lock()
+		for _, g := range knownGovees {
+			if len(g.Name) > maxNameLength {
+				maxNameLength = len(g.Name)
+			}
+		}
+		mutex.Unlock()
+		// Format the log message with padding
+		logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%% | Battery: %3d%%",
+			maxNameLength,
+			govee.Name,
+			temperature,
+			humidity,
+			batteryLevel)
+
+		log.Println(logMsg)
+	}
 
 	// Update Prometheus metrics
 	temperatureGauge.WithLabelValues(govee.Name).Set(temperature)
@@ -362,24 +391,43 @@ func fetchOpenMeteoData(ctx context.Context) {
 	openMeteoTemperatureGauge.Set(temp)
 	openMeteoHumidityGauge.Set(float64(humidity))
 
-	// Find the longest name in knownGovees for consistent padding
-	maxNameLength := 0
-	mutex.Lock()
-	for _, g := range knownGovees {
-		if len(g.Name) > maxNameLength {
-			maxNameLength = len(g.Name)
+	// Check if values have changed from last logged values
+	openMeteoConfigMu.Lock()
+	valuesChanged := lastOpenMeteoValues == nil ||
+		lastOpenMeteoValues.Temperature != temp ||
+		lastOpenMeteoValues.Humidity != float64(humidity)
+
+	if valuesChanged {
+		// Update last logged values
+		lastOpenMeteoValues = &lastLoggedValues{
+			Temperature: temp,
+			Humidity:    float64(humidity),
+			Battery:     0, // Not applicable for OpenMeteo
 		}
 	}
-	mutex.Unlock()
+	openMeteoConfigMu.Unlock()
 
-	// Format the log message with padding to match sensor logs
-	logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%%",
-		maxNameLength,
-		"OpenMeteo",
-		temp,
-		float64(humidity))
+	// Only log if values have changed
+	if valuesChanged {
+		// Find the longest name in knownGovees for consistent padding
+		maxNameLength := 0
+		mutex.Lock()
+		for _, g := range knownGovees {
+			if len(g.Name) > maxNameLength {
+				maxNameLength = len(g.Name)
+			}
+		}
+		mutex.Unlock()
 
-	log.Println(logMsg)
+		// Format the log message with padding to match sensor logs
+		logMsg := fmt.Sprintf("%-*s | Temp: %5.2f°C | Humidity: %5.2f%%",
+			maxNameLength,
+			"OpenMeteo",
+			temp,
+			float64(humidity))
+
+		log.Println(logMsg)
+	}
 }
 
 // updateOpenMeteoConfig safely updates the OpenMeteo configuration
