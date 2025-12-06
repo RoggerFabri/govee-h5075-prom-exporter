@@ -10,6 +10,7 @@ A **Prometheus exporter** for **Govee H5075 temperature & humidity sensors** tha
 - **Applies user-defined temperature & humidity offsets**.
 - **Exports metrics to Prometheus** on a configurable **HTTP port**.
 - **Removes stale metrics** if a device is inactive.
+- **OpenMeteo weather API integration** - Optional outdoor weather data alongside indoor sensors.
 - **Hot-reload configuration** - device and OpenMeteo changes are automatically detected without restart.
 - **Graceful shutdown** with proper context handling for all goroutines.
 
@@ -58,6 +59,13 @@ server:
 bluetooth:
   scanInterval: 15s
   scanDuration: 15s
+
+# OpenMeteo API configuration
+openmeteo:
+  enabled: false              # Enable/disable OpenMeteo weather API integration
+  interval: 15m               # How often to fetch weather data
+  latitude: 53.35             # Latitude for weather location
+  longitude: -6.26           # Longitude for weather location
   
 # Metrics management
 metrics:
@@ -114,6 +122,14 @@ Environment variables override config.yaml values:
 | `REFRESH_INTERVAL`| `30s`   | How often to check for stale metrics (duration format, e.g., 30s, 1m, 1h). |
 | `STALE_THRESHOLD` | `5m`    | Time before inactive sensors are removed (duration format, e.g., 5m, 1h). |
 
+#### **OpenMeteo Configuration**
+| Variable              | Default | Description |
+|----------------------|---------|-------------|
+| `OPENMETEO_ENABLED`  | `false` | Enable/disable OpenMeteo weather API integration. |
+| `OPENMETEO_INTERVAL` | `15m`   | How often to fetch weather data (duration format, e.g., 5m, 15m, 1h). |
+| `OPENMETEO_LATITUDE` | `53.35` | Latitude for weather location (decimal degrees). |
+| `OPENMETEO_LONGITUDE`| `-6.26` | Longitude for weather location (decimal degrees). |
+
 #### **Dashboard Warning Thresholds**
 | Variable                      | Default | Description |
 |------------------------------|---------|-------------|
@@ -132,6 +148,11 @@ export SCAN_INTERVAL=30s
 export SCAN_DURATION=1m
 export REFRESH_INTERVAL=1m
 export STALE_THRESHOLD=10m
+# Optional: Enable OpenMeteo integration
+export OPENMETEO_ENABLED=true
+export OPENMETEO_INTERVAL=5m
+export OPENMETEO_LATITUDE=53.35
+export OPENMETEO_LONGITUDE=-6.26
 # Optional: Customize warning thresholds
 export TEMPERATURE_LOW_THRESHOLD=0
 export TEMPERATURE_HIGH_THRESHOLD=35
@@ -145,7 +166,7 @@ docker-compose up -d
 
 ## 📜 Configuring Known Devices
 
-Devices are now configured in `config.yaml` (see above) instead of a separate `.known_govees` file. This provides:
+Devices are configured in `config.yaml` (see above). This provides:
 - ✅ Hierarchical, readable YAML structure
 - ✅ Support for calibration offsets per device
 - ✅ Centralized configuration with all other settings
@@ -208,6 +229,11 @@ services:
       - REFRESH_INTERVAL=30s
       - STALE_THRESHOLD=5m
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+      # OpenMeteo API configuration (optional - can override config.yaml)
+      # - OPENMETEO_ENABLED=true
+      # - OPENMETEO_INTERVAL=15m
+      # - OPENMETEO_LATITUDE=53.35
+      # - OPENMETEO_LONGITUDE=-6.26
       # Dashboard warning thresholds (optional - can override config.yaml)
       - TEMPERATURE_MIN=-20
       - TEMPERATURE_MAX=40
@@ -237,6 +263,10 @@ Configuration loaded from:
   server.port                         = 8080                 [default]
   bluetooth.scanInterval              = 15s                  [config.yaml]
   bluetooth.scanDuration              = 15s                  [config.yaml]
+  openmeteo.enabled                   = false                [default]
+  openmeteo.interval                  = 15m                  [default]
+  openmeteo.latitude                  = 53.35                [default]
+  openmeteo.longitude                 = -6.26                [default]
   metrics.refreshInterval             = 30s                  [environment]
   metrics.staleThreshold              = 5m                   [default]
   thresholds.temperature.min          = -20                  [default]
@@ -295,7 +325,74 @@ Search for:
 govee_h5075_temperature
 govee_h5075_humidity
 govee_h5075_battery
+openmeteo_temperature
+openmeteo_humidity
 ```
+
+---
+
+## 🌤️ OpenMeteo Weather API Integration
+
+The exporter includes optional integration with the [OpenMeteo API](https://open-meteo.com/) to fetch outdoor weather data alongside your indoor sensor readings. This allows you to compare indoor and outdoor conditions.
+
+### **Features**
+- Optional outdoor weather data from OpenMeteo API
+- Configurable polling interval (default: 15 minutes)
+- Automatic Prometheus metrics export
+- Independent from Bluetooth sensor monitoring
+- Hot-reload support - configuration changes applied without restart
+
+### **Configuration**
+
+Enable OpenMeteo in `config.yaml`:
+```yaml
+openmeteo:
+  enabled: true                 # Enable/disable OpenMeteo weather API integration
+  interval: 15m                 # How often to fetch weather data
+  latitude: 53.35               # Latitude for weather location
+  longitude: -6.26              # Longitude for weather location
+```
+
+Or use environment variables:
+```sh
+export OPENMETEO_ENABLED=true
+export OPENMETEO_INTERVAL=15m
+export OPENMETEO_LATITUDE=53.35
+export OPENMETEO_LONGITUDE=-6.26
+```
+
+### **Prometheus Metrics**
+
+When enabled, the following metrics are exported:
+
+| Metric | Type | Description | Labels |
+|--------|------|-------------|--------|
+| `openmeteo_temperature` | Gauge | Current temperature from OpenMeteo API (°C) | None |
+| `openmeteo_humidity` | Gauge | Current humidity from OpenMeteo API (%) | None |
+
+### **Example Usage**
+
+1. Enable OpenMeteo in `config.yaml`:
+```yaml
+openmeteo:
+  enabled: true
+  interval: 15m
+  latitude: 40.7128    # New York
+  longitude: -74.0060
+```
+
+2. Check logs for confirmation:
+```
+Starting OpenMeteo API poller (interval: 15m, location: 40.7128, -74.0060)
+OpenMeteo | Temp: 15.30°C | Humidity: 65.00%
+```
+
+3. Query metrics:
+```sh
+curl http://localhost:8080/metrics | grep openmeteo
+```
+
+For detailed documentation, see [OPENMETEO_INTEGRATION.md](OPENMETEO_INTEGRATION.md).
 
 ---
 
