@@ -1,6 +1,6 @@
 # OpenMeteo API Integration
 
-The Govee H5075 Prometheus Exporter now includes optional OpenMeteo API integration to fetch outdoor weather data alongside your indoor sensor readings.
+The Govee H5075 Prometheus Exporter  includes optional OpenMeteo API integration to fetch outdoor weather data alongside your indoor sensor readings.
 
 ## Features
 
