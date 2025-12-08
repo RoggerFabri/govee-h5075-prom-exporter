@@ -124,6 +124,26 @@ function startProgressBar() {
     progressBar.style.transform = 'scaleX(0)';
 }
 
+// Helper function to determine if we're in desktop layout
+function isDesktopLayoutMode() {
+    // Check if document is available (defensive check)
+    if (!document || !document.documentElement) {
+        return window.innerWidth > 600; // Fallback to screen width
+    }
+    
+    const layout = document.documentElement.getAttribute('data-layout');
+    // Explicit desktop mode
+    if (layout === 'desktop') {
+        return true;
+    }
+    // Explicit mobile mode
+    if (layout === 'mobile') {
+        return false;
+    }
+    // Auto mode or no layout set: check screen width (desktop if > 600px, matching CSS media query)
+    return window.innerWidth > 600;
+}
+
 // Updated utility functions
 function normalizeTemp(temp) {
     // Normalize temperature to 0-100% range, supporting negative temperatures
@@ -455,7 +475,7 @@ function handleTouchEnd(e) {
     placeholder = null;
 }
 
-function createCompactMetrics(data) {
+function createCompactMetrics(data, excludeStatusChip = false) {
     const metrics = [];
     
     // Temperature
@@ -530,7 +550,8 @@ function createCompactMetrics(data) {
     }
     
     // Status indicator (stale/missing) - icon only
-    if (data.status && data.status !== 'active' && !data.isWeatherStation) {
+    // Skip if excludeStatusChip is true (e.g., in desktop layout where we show it in header)
+    if (!excludeStatusChip && data.status && data.status !== 'active' && !data.isWeatherStation) {
         const statusLabel = data.status === 'never_seen' ? 'Missing' : 'Stale';
         metrics.push(`
             <span class="compact-metric status-chip status-${data.status}" title="${statusLabel}" role="status">
@@ -750,14 +771,17 @@ async function fetchMetrics() {
                 const status = data.status || 'active';
                 const isStale = status === 'stale' || status === 'never_seen';
                 const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
-                const isDesktopLayout = document.documentElement.getAttribute('data-layout') === 'desktop';
+                const isDesktopLayout = isDesktopLayoutMode();
                 // In desktop, if stale and no metrics, we'll show placeholder metrics, so don't add card-no-metrics class
                 const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktopLayout;
                 const baseClass = isWeatherStation ? 'card weather-station' : 'card';
-                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (!hasMetrics && !shouldShowPlaceholderMetrics ? ' card-no-metrics' : '');
+                // Don't add card-no-metrics if we're showing placeholder metrics in desktop
+                const shouldAddNoMetricsClass = !hasMetrics && !shouldShowPlaceholderMetrics;
+                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (shouldAddNoMetricsClass ? ' card-no-metrics' : '');
 
                 // Create compact metrics for mobile (includes status icon if needed)
-                const compactMetrics = createCompactMetrics(data);
+                // In desktop, exclude status chip since we show it in the header
+                const compactMetrics = createCompactMetrics(data, isDesktopLayout && shouldShowPlaceholderMetrics);
                 
                 // Optional weather station footer
                 const weatherFooter = isWeatherStation ? `
@@ -802,11 +826,14 @@ async function fetchMetrics() {
                 }
 
                 // For desktop: show all metrics with "-" values for missing/stale devices without metrics
-                const desktopMetricsBlock = shouldShowPlaceholderMetrics ? `
+                // Use shouldShowPlaceholderMetrics to ensure consistency
+                const finalMetricsBlock = shouldShowPlaceholderMetrics 
+                    ? `
                         ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
                         ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
                         ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
-                ` : metricsBlock;
+                    `
+                    : metricsBlock;
 
                 return `
                     <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
@@ -815,7 +842,7 @@ async function fetchMetrics() {
                             ${warningChip}
                             ${compactMetrics}
                         </div>
-                        ${desktopMetricsBlock}
+                        ${finalMetricsBlock}
                         ${weatherFooter}
                     </div>
                 `;
@@ -943,8 +970,12 @@ async function fetchMetrics() {
                     const status = data.status || 'active';
                     const isStale = status === 'stale' || status === 'never_seen';
                     const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
+                    const isDesktopLayout = isDesktopLayoutMode();
+                    const shouldShowPlaceholderMetrics = isStale && !(data.isWeatherStation) && !hasMetrics && isDesktopLayout;
+                    
                     card.classList.toggle('card-stale', isStale && !(data.isWeatherStation));
-                    card.classList.toggle('card-no-metrics', !hasMetrics);
+                    // Don't add card-no-metrics if we should show placeholder metrics in desktop
+                    card.classList.toggle('card-no-metrics', !hasMetrics && !shouldShowPlaceholderMetrics);
 
                     // Update tooltip for missing/stale devices
                     const statusTooltip = isStale && !(data.isWeatherStation)
@@ -963,12 +994,77 @@ async function fetchMetrics() {
                     // Update compact metrics (mobile view)
                     const compactContainer = card.querySelector('.metrics-compact');
                     if (compactContainer) {
-                        const compactMetrics = createCompactMetrics(data);
+                        const excludeStatusChip = isDesktopLayout && shouldShowPlaceholderMetrics;
+                        const compactMetrics = createCompactMetrics(data, excludeStatusChip);
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = compactMetrics;
                         const newCompactContainer = tempDiv.firstElementChild;
                         if (newCompactContainer) {
                             compactContainer.replaceWith(newCompactContainer);
+                        }
+                    }
+                    
+                    // For desktop: if device is stale and has no metrics, show placeholder metrics
+                    if (shouldShowPlaceholderMetrics) {
+                        // Check if card has wrong structure (card-no-metrics without proper header/metrics)
+                        const headerRow = card.querySelector('.card-header-row');
+                        const hasPlaceholderMetrics = card.querySelectorAll('.metric').length === 3 && 
+                            card.querySelector('.metric .metric-value')?.textContent?.includes('-');
+                        
+                        if (!headerRow || !hasPlaceholderMetrics) {
+                            // Card has wrong structure, need to fix it
+                            // Remove compact metrics that might be in wrong place
+                            const wrongCompactMetrics = card.querySelector('h2 + .metrics-compact');
+                            if (wrongCompactMetrics) {
+                                wrongCompactMetrics.remove();
+                            }
+                            
+                            // Ensure we have a header row
+                            let actualHeaderRow = headerRow;
+                            if (!actualHeaderRow) {
+                                const h2 = card.querySelector('h2');
+                                if (h2) {
+                                    const compactMetrics = card.querySelector('.metrics-compact');
+                                    actualHeaderRow = document.createElement('div');
+                                    actualHeaderRow.className = 'card-header-row';
+                                    h2.parentNode.insertBefore(actualHeaderRow, h2.nextSibling);
+                                    actualHeaderRow.appendChild(h2);
+                                    if (compactMetrics) {
+                                        actualHeaderRow.appendChild(compactMetrics);
+                                    }
+                                }
+                            }
+                            
+                            if (actualHeaderRow) {
+                                // Remove any existing metrics
+                                const existingMetrics = card.querySelectorAll('.metric');
+                                existingMetrics.forEach(m => m.remove());
+                                
+                                // Add placeholder metrics
+                                const placeholderMetrics = `
+                                    ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
+                                    ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
+                                    ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
+                                `;
+                                actualHeaderRow.insertAdjacentHTML('afterend', placeholderMetrics);
+                                
+                                // Add warning chip to header if not present
+                                const warningChip = actualHeaderRow.querySelector('.card-header-warning-chip');
+                                if (!warningChip) {
+                                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+                                    const chipHTML = `
+                                        <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                            </svg>
+                                        </span>
+                                    `;
+                                    const titleEl = actualHeaderRow.querySelector('h2');
+                                    if (titleEl) {
+                                        titleEl.insertAdjacentHTML('afterend', chipHTML);
+                                    }
+                                }
+                            }
                         }
                     }
                     
