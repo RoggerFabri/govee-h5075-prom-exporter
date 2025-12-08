@@ -399,6 +399,9 @@ body {
 .group-stat-warning svg {
     fill: var(--warning-color) !important;
     opacity: 1 !important;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 .group-count {
@@ -485,14 +488,15 @@ body {
 }
 
 .metrics-compact .status-chip {
-    padding: 4px 6px;
-    gap: 4px;
+    /* Match compact-metric exactly - inherits all properties */
 }
 
 .status-chip.status-stale svg,
 .status-chip.status-never_seen svg {
     fill: var(--warning-color);
     opacity: 1;
+    width: 14px;
+    height: 14px;
 }
 
 /* Hide compact view on desktop (except for cards with no metrics) */
@@ -789,6 +793,8 @@ body {
     .metrics-compact .compact-metric.status-chip.status-never_seen svg {
         fill: var(--warning-color);
         opacity: 1;
+        width: 14px;
+        height: 14px;
     }
 
     .header {
@@ -1026,6 +1032,11 @@ body {
     gap: 4px !important;
 }
 
+[data-layout="desktop"] .group-stat svg {
+    width: 14px !important;
+    height: 14px !important;
+}
+
 [data-layout="desktop"] .card {
     display: block !important;
     padding: 20px !important;
@@ -1240,6 +1251,8 @@ body {
 [data-layout="mobile"] .metrics-compact .compact-metric.status-chip.status-never_seen svg {
     fill: var(--warning-color);
     opacity: 1;
+    width: 14px !important;
+    height: 14px !important;
 }
 
 /* Responsive adjustments (only apply in auto mode) */
