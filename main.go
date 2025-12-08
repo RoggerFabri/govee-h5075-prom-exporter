@@ -141,15 +141,17 @@ func loadKnownGovees(config *Config) {
 	} else {
 		log.Println("Loaded known Govee H5075 devices:")
 		for mac, device := range knownGovees {
-			groupInfo := ""
+			groupInfo := strings.Repeat(" ", 13) // keep the column width stable even when group is empty
 			if device.Group != "" {
-				groupInfo = fmt.Sprintf(" [%s]", device.Group)
+				groupInfo = fmt.Sprintf(" [%-10s]", device.Group)
 			}
-			displayInfo := ""
+
+			displayInfo := fmt.Sprintf(" %-25s", "")
 			if device.DisplayName != "" && device.DisplayName != device.Name {
 				displayInfo = fmt.Sprintf(" Display: %-15s", device.DisplayName)
 			}
-			log.Printf("  %-17s -> Name: %-15s%s%s  TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
+
+			log.Printf("  %-17s -> Name: %-15s%s%s  TempOffset: %6.1f°C  HumidityOffset: %6.1f%%",
 				mac,
 				device.Name,
 				groupInfo,
