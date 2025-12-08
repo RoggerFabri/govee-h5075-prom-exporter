@@ -38,10 +38,13 @@ thresholds:
     low: 5                      # Battery level at or below which warning is shown (%)
 
 # Known Govee H5075 devices
-# Configure your sensors here with their MAC addresses, optional groups, and optional calibration offsets
+# Configure your sensors here with their MAC addresses, optional UI display names,
+# optional groups, and optional calibration offsets. Prometheus metrics always use `name`,
+# while the dashboard shows `displayName` when provided (otherwise it falls back to `name`).
 devices:
   - mac: "A4:C1:38:E0:0F:54"
     name: "Office"
+    displayName: "Office Desk"    # Optional: Friendly name used only on the dashboard
     group: "Upstairs"           # Optional: Group devices (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
     offsets:
       temperature: 0.0          # Temperature offset in °C (positive or negative)
@@ -64,6 +67,7 @@ devices:
 # Example device with calibration offsets and without a group:
 # - mac: "A4:C1:38:12:34:56"
 #   name: "Bedroom"
+#   displayName: "Guest Bedroom"
 #   offsets:
 #     temperature: -0.5         # Sensor reads 0.5°C too high, so subtract 0.5
 #     humidity: 2.0             # Sensor reads 2% too low, so add 2

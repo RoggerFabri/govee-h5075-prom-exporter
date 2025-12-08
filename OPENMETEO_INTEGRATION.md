@@ -45,6 +45,17 @@ export OPENMETEO_LONGITUDE=-6.26
 
 **Note:** All OpenMeteo configuration changes are automatically detected and applied without requiring a restart.
 
+### Device display names (dashboard only)
+
+The exporter dashboard supports an optional `displayName` per device in `config.yaml`. The Prometheus labels continue to use `name`, and the UI falls back to `name` when no `displayName` is set:
+
+```yaml
+devices:
+  - mac: "A4:C1:38:E0:0F:54"
+    name: "Office"
+    displayName: "Office Desk"  # Shown on dashboard only
+```
+
 ## Prometheus Metrics
 
 When enabled, the following metrics are exported:

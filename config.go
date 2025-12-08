@@ -14,10 +14,11 @@ import (
 
 // Device represents a known Govee H5075 device
 type Device struct {
-	MAC     string `mapstructure:"mac"`
-	Name    string `mapstructure:"name"`
-	Group   string `mapstructure:"group"` // Optional grouping (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
-	Offsets struct {
+	MAC         string `mapstructure:"mac"`
+	Name        string `mapstructure:"name"`
+	DisplayName string `mapstructure:"displayName"` // Optional display name for the dashboard UI
+	Group       string `mapstructure:"group"`       // Optional grouping (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor")
+	Offsets     struct {
 		Temperature float64 `mapstructure:"temperature"`
 		Humidity    float64 `mapstructure:"humidity"`
 	} `mapstructure:"offsets"`
