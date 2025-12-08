@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     GOMAXPROCS=4 go build -v -trimpath -p 16 -ldflags="-w -s" -o govee_exporter .
 
 # Stage 2: Create a minimal runtime container
-FROM alpine:3.22
+FROM alpine:3.23
 
 # Container metadata
 LABEL maintainer="Rogger Fabri" \
