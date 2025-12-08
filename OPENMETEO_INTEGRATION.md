@@ -1,6 +1,6 @@
 # OpenMeteo API Integration
 
-The Govee H5075 Prometheus Exporter  includes optional OpenMeteo API integration to fetch outdoor weather data alongside your indoor sensor readings.
+The Govee H5075 Prometheus Exporter includes optional OpenMeteo API integration to fetch outdoor weather data alongside your indoor sensor readings.
 
 ## Features
 
@@ -87,7 +87,7 @@ docker-compose up -d
 
 You should see:
 
-```
+```text
 Starting OpenMeteo API poller (interval: 10m, location: 40.7128, -74.0060)
 OpenMeteo | Temp: 15.30°C | Humidity: 65.00%
 ```
@@ -99,7 +99,8 @@ curl http://localhost:8080/metrics | grep openmeteo
 ```
 
 Output:
-```
+
+```text
 # HELP openmeteo_humidity Humidity from OpenMeteo API
 # TYPE openmeteo_humidity gauge
 openmeteo_humidity 65
@@ -114,6 +115,7 @@ openmeteo_temperature 15.3
 OpenMeteo configuration supports hot-reload - changes to `config.yaml` are automatically detected and applied without restart:
 
 **Change location:**
+
 ```yaml
 openmeteo:
   enabled: true
@@ -123,6 +125,7 @@ openmeteo:
 ```
 
 **Change polling interval:**
+
 ```yaml
 openmeteo:
   enabled: true
@@ -132,6 +135,7 @@ openmeteo:
 ```
 
 **Enable/Disable dynamically:**
+
 ```yaml
 openmeteo:
   enabled: false       # Changed from true - stops fetching immediately
@@ -141,19 +145,22 @@ openmeteo:
 ```
 
 **Log output on config change:**
-```
+
+```text
 Config file changed, reloading device configuration...
 Device configuration reloaded successfully
 OpenMeteo: Configuration updated (interval: 15m, location: 40.7128, -74.0060)
 ```
 
 **When dynamically enabling:**
-```
+
+```text
 OpenMeteo: Enabled (interval: 5m, location: 53.3500, -6.2600)
 ```
 
 **When dynamically disabling:**
-```
+
+```text
 OpenMeteo: Disabled
 ```
 
@@ -162,17 +169,20 @@ OpenMeteo: Disabled
 When enabled, OpenMeteo will log:
 
 **Startup:**
-```
+
+```text
 Starting OpenMeteo API poller (interval: 5m, location: 53.3500, -6.2600)
 ```
 
 **Each successful fetch:**
-```
+
+```text
 OpenMeteo | Temp: 11.70°C | Humidity: 95.00%
 ```
 
 **On errors:**
-```
+
+```text
 Failed to fetch OpenMeteo data: context deadline exceeded
 ```
 
@@ -181,6 +191,7 @@ Failed to fetch OpenMeteo data: context deadline exceeded
 ### OpenMeteo not fetching data
 
 1. **Check if enabled:**
+
    ```bash
    docker logs govee-h5075-prom-exporter | grep "OpenMeteo"
    ```
@@ -190,25 +201,29 @@ Failed to fetch OpenMeteo data: context deadline exceeded
    - Check latitude/longitude are valid (-90 to 90, -180 to 180)
 
 3. **Check for errors:**
+
    ```bash
    docker logs govee-h5075-prom-exporter | grep "Failed to fetch OpenMeteo"
    ```
 
 ### Common Errors
 
-**"context deadline exceeded"**
+#### context deadline exceeded
+
 - Network issue or API timeout
 - Will retry on next interval automatically
 
-**"failed to parse JSON response"**
+#### failed to parse JSON response
+
 - Possible API changes or network issues
-- Check https://open-meteo.com/en/docs for status
+- Check [OpenMeteo docs](https://open-meteo.com/en/docs) for status
 
 ### Disable OpenMeteo
 
-**Option 1: Using hot-reload (no restart required)**
+#### Option 1: Using hot-reload (no restart required)
 
 Edit `config.yaml`:
+
 ```yaml
 openmeteo:
   enabled: false
@@ -216,7 +231,7 @@ openmeteo:
 
 Changes take effect within ~500ms.
 
-**Option 2: Using environment variables (requires restart)**
+#### Option 2: Using environment variables (requires restart)
 
 ```bash
 export OPENMETEO_ENABLED=false
