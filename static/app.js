@@ -280,8 +280,6 @@ function toggleGroup(groupElement) {
 
 // Drag and drop functionality
 let draggedElement = null;
-let touchStartY = 0;
-let touchStartX = 0;
 let isDragging = false;
 let placeholder = null;
 
@@ -346,8 +344,6 @@ function handleTouchStart(e) {
     if (!draggedElement) return;
     
     isDragging = true;
-    touchStartY = e.touches[0].clientY;
-    touchStartX = e.touches[0].clientX;
     
     // Add visual feedback
     draggedElement.classList.add('dragging');
