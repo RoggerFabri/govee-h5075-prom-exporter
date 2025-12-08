@@ -5,6 +5,7 @@ A **Prometheus exporter** for **Govee H5075 temperature & humidity sensors** tha
 ---
 
 ## 🚀 Features
+
 - **BLE-based scanning** (no need for Govee cloud services).
 - **Maps device MAC addresses to human-readable names**.
 - **Applies user-defined temperature & humidity offsets**.
@@ -19,19 +20,23 @@ A **Prometheus exporter** for **Govee H5075 temperature & humidity sensors** tha
 ## 📦 Installation
 
 ### **1️⃣ Clone the Repository**
+
 ```sh
 git clone https://github.com/RoggerFabri/govee-h5075-prom-exporter.git
 cd govee-h5075-prom-exporter
 ```
 
 ### **2️⃣ Build & Run Using Docker**
+
 ```sh
 docker-compose up --build -d
 ```
 
 ### **3️⃣ Access Prometheus Metrics**
+
 Open in your browser:
-```
+
+```text
 http://localhost:8080/metrics
 ```
 
@@ -40,8 +45,9 @@ http://localhost:8080/metrics
 ## ⚙️ Configuration
 
 Configuration can be provided in three ways, with the following precedence (highest to lowest):
+
 1. **Environment Variables** (highest priority)
-2. **config.yaml file** (medium priority)  
+2. **config.yaml file** (medium priority)
 3. **Default values** (lowest priority)
 
 At startup, the application will display where each configuration value is loaded from.
@@ -167,6 +173,7 @@ docker-compose up -d
 ## 📜 Configuring Known Devices
 
 Devices are configured in `config.yaml` (see above). This provides:
+
 - ✅ Hierarchical, readable YAML structure
 - ✅ Support for calibration offsets per device
 - ✅ Centralized configuration with all other settings
@@ -199,6 +206,7 @@ devices:
 ```
 
 **Notes:**
+
 - **MAC addresses** are case-insensitive and will be normalized to uppercase
 - **Group** is optional - use it to organize devices (e.g., "Upstairs", "Downstairs", "Indoor", "Outdoor", "Basement")
 - **Offsets** are optional and default to 0.0 if not specified
@@ -211,6 +219,7 @@ devices:
 ## 🏗️ Running with Docker Compose
 
 ### **📜 `docker-compose.yaml`**
+
 ```yaml
 services:
   govee-h5075-prom-exporter:
@@ -249,6 +258,7 @@ services:
 ```
 
 **Note**: You can choose to configure the application using:
+
 - Only environment variables (comment out the config.yaml volume mount)
 - Only config.yaml (remove/comment environment variables)
 - Both (environment variables will override config.yaml values)
@@ -257,7 +267,7 @@ services:
 
 At startup, the application logs where each configuration value is loaded from:
 
-```
+```text
 Configuration loaded from:
 ===========================
   server.port                         = 8080                 [default]
@@ -281,8 +291,8 @@ Configuration loaded from:
 
 This helps you understand which configuration source is being used for each setting
 
-
 ### **Start the Container**
+
 ```sh
 docker-compose up --build -d
 ```
@@ -302,6 +312,7 @@ curl http://localhost:8080/metrics
 ## 📊 Prometheus Integration
 
 ### **1️⃣ Add Exporter to Prometheus Configuration**
+
 Edit `prometheus.yaml`:
 ```yaml
 scrape_configs:
@@ -316,12 +327,16 @@ docker-compose restart prometheus
 ```
 
 ### **3️⃣ Open Prometheus UI**
+
 Go to:
-```
+
+```text
 http://localhost:9090
 ```
+
 Search for:
-```
+
+```text
 govee_h5075_temperature
 govee_h5075_humidity
 govee_h5075_battery
@@ -336,6 +351,7 @@ openmeteo_humidity
 The exporter includes optional integration with the [OpenMeteo API](https://open-meteo.com/) to fetch outdoor weather data alongside your indoor sensor readings. This allows you to compare indoor and outdoor conditions.
 
 ### **Features**
+
 - Optional outdoor weather data from OpenMeteo API
 - Configurable polling interval (default: 15 minutes)
 - Automatic Prometheus metrics export
@@ -345,6 +361,7 @@ The exporter includes optional integration with the [OpenMeteo API](https://open
 ### **Configuration**
 
 Enable OpenMeteo in `config.yaml`:
+
 ```yaml
 openmeteo:
   enabled: true                 # Enable/disable OpenMeteo weather API integration
@@ -354,6 +371,7 @@ openmeteo:
 ```
 
 Or use environment variables:
+
 ```sh
 export OPENMETEO_ENABLED=true
 export OPENMETEO_INTERVAL=15m
@@ -373,6 +391,7 @@ When enabled, the following metrics are exported:
 ### **Example Usage**
 
 1. Enable OpenMeteo in `config.yaml`:
+
 ```yaml
 openmeteo:
   enabled: true
@@ -382,12 +401,14 @@ openmeteo:
 ```
 
 2. Check logs for confirmation:
-```
+
+```text
 Starting OpenMeteo API poller (interval: 15m, location: 40.7128, -74.0060)
 OpenMeteo | Temp: 15.30°C | Humidity: 65.00%
 ```
 
 3. Query metrics:
+
 ```sh
 curl http://localhost:8080/metrics | grep openmeteo
 ```
@@ -399,12 +420,15 @@ For detailed documentation, see [OPENMETEO_INTEGRATION.md](OPENMETEO_INTEGRATION
 ## 🌐 Web Interface
 
 ### **Dashboard Overview**
+
 The exporter includes a built-in web dashboard accessible at:
-```
+
+```text
 http://localhost:8080
 ```
 
 Features:
+
 - **Real-time sensor cards** showing temperature, humidity, and battery levels
 - **Auto-refreshing data** every 60 seconds
 - **Visual progress bars** for easy metric interpretation
@@ -426,43 +450,59 @@ The dashboard automatically remembers your theme preference (dark/light) between
 ## 🛠️ Troubleshooting
 
 ### **❓ Metrics Endpoint Not Working**
+
 - Check if the container is running:
+
   ```sh
   docker ps
   ```
+
 - Restart the service:
+
   ```sh
   docker-compose down && docker-compose up -d
   ```
+
 - Check logs:
+
   ```sh
   docker logs -f govee-h5075-prom-exporter
   ```
 
 ### **❓ No BLE Devices Detected**
+
 - Ensure Bluetooth is enabled:
+
   ```sh
   sudo systemctl restart bluetooth
   ```
+
 - Verify adapter is available:
+
   ```sh
   hciconfig
   ```
+
   Expected output:
-  ```
+
+  ```text
   hci0:   Type: Primary  Bus: USB
           UP RUNNING
   ```
 
 ### **❓ Configuration Changes Not Taking Effect**
+
 - Check the logs to verify hot-reload is working:
+
   ```sh
   docker logs -f govee-h5075-prom-exporter | grep "Config file"
   ```
+
 - You should see: `Config file watcher: Monitoring config.yaml for changes`
 - After editing `config.yaml`, you should see: `Configuration reloaded successfully`
 - For OpenMeteo changes, you should also see: `OpenMeteo: Configuration updated (interval: 5m, location: 53.3500, -6.2600)`
 - If hot-reload is disabled, restart the container:
+
   ```sh
   docker-compose restart
   ```
@@ -472,22 +512,26 @@ The dashboard automatically remembers your theme preference (dark/light) between
 ## 🛠️ Development
 
 ### **🔹 Mock Server for Development**
+
 For development purposes, a Python-based mock server is provided that simulates Govee H5075 devices without requiring actual hardware.
 
 #### **Prerequisites**
+
 - Python 3.x
 - Flask
 
 #### **Setup**
 1. Install Flask:
-```sh
-pip install flask
-```
+
+   ```sh
+   pip install flask
+   ```
 
 2. Start the mock server:
-```sh
-python mock_server.py
-```
+
+   ```sh
+   python mock_server.py
+   ```
 
 The mock server will start at:
 - UI: http://localhost:5000
@@ -504,19 +548,22 @@ The mock server will start at:
 
 #### **Development Workflow**
 1. Start the mock server for development:
-```sh
-python mock_server.py
-```
+
+   ```sh
+   python mock_server.py
+   ```
 
 2. Make changes to the UI (`static/index.html`)
 3. Refresh the browser to see changes
 4. Test metric collection using:
-```sh
-curl http://localhost:5000/metrics
-```
+
+   ```sh
+   curl http://localhost:5000/metrics
+   ```
 
 ### **🔹 Building Manually**
 If you don't want to use Docker:
+
 ```sh
 go build -o govee-exporter main.go
 ./govee-exporter
@@ -524,6 +571,7 @@ go build -o govee-exporter main.go
 
 ### **🔹 Updating the Code**
 Pull the latest updates:
+
 ```sh
 git pull origin main
 docker-compose up --build -d

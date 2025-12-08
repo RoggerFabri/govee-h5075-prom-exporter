@@ -7,12 +7,14 @@ This project contains multiple Dockerfiles optimized for different build scenari
 **Use case**: Local development, direct Docker builds without CI/CD
 
 **Features**:
+
 - Multi-stage build with Go builder stage
 - Builds Go binary inside Docker
 - Includes all build optimizations (cache mounts, parallel compilation)
 - Self-contained - only requires `docker build`
 
 **Build command**:
+
 ```bash
 docker build -t govee-exporter:latest .
 ```
@@ -22,12 +24,14 @@ docker build -t govee-exporter:latest .
 **Use case**: GitHub Actions and CI/CD pipelines with pre-built binaries
 
 **Features**:
+
 - Minimal Alpine-only image (no Go toolchain)
 - Expects pre-compiled binary in build context
 - Faster builds when binary is compiled natively
 - Used by GitHub Actions workflows with native Go cross-compilation
 
 **Build command**:
+
 ```bash
 # First compile the binary
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-w -s" -o govee_exporter .
@@ -41,6 +45,7 @@ docker build -f Dockerfile.prebuilt -t govee-exporter:latest .
 **Use case**: Reference copy of the original multi-stage Dockerfile
 
 **Features**:
+
 - Backup of the original Dockerfile with builder stages
 - Kept for reference and fallback scenarios
 - Same as `Dockerfile` but preserved before CI/CD optimizations
