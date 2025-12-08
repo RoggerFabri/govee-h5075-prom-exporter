@@ -1,0 +1,275 @@
+/* Layout Styles - Container, Groups, Grid, Header, Navigation */
+
+@layer layouts {
+    .container {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-container-gap-desktop);
+        width: 100%;
+        max-width: 1400px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        min-height: 100px;
+        position: relative;
+        /* Enable container queries */
+        container-type: inline-size;
+        container-name: main-container;
+    }
+
+    /* Device Group Styles */
+    .device-group {
+        width: 100%;
+        cursor: move;
+        cursor: grab;
+    }
+
+    .device-group:active {
+        cursor: grabbing;
+    }
+
+    .device-group.dragging {
+        opacity: 0.5;
+    }
+
+    .group-placeholder {
+        background-color: rgba(var(--border-color-rgb), 0.2);
+        border: 2px dashed var(--border-color);
+        border-radius: 16px;
+        margin-bottom: 20px;
+        transition: all 0.2s ease;
+    }
+
+    .group-drag-handle {
+        width: var(--group-drag-handle-width-desktop);
+        height: var(--group-drag-handle-height-desktop);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.4;
+        transition: opacity 0.2s ease;
+        flex-shrink: 0;
+        cursor: grab;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: none;
+    }
+
+    .group-drag-handle:hover {
+        opacity: 0.8;
+    }
+
+    .group-drag-handle:active {
+        cursor: grabbing;
+        opacity: 1;
+    }
+
+    .group-drag-handle svg {
+        width: var(--group-drag-handle-svg-size-desktop);
+        height: var(--group-drag-handle-svg-size-desktop);
+    }
+
+    .group-header {
+        display: flex;
+        align-items: center;
+        gap: var(--group-header-gap-desktop);
+        padding: var(--spacing-group-header-padding-desktop);
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-color);
+        background: linear-gradient(90deg, rgba(233, 76, 175, 0.08) 0%, var(--card-bg) 100%);
+        border-radius: 16px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        text-align: left;
+        font-size: var(--font-size-group-header-desktop);
+        color: var(--text-color);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .group-toggle {
+        width: var(--group-toggle-size-desktop);
+        height: var(--group-toggle-size-desktop);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease;
+        flex-shrink: 0;
+    }
+
+    .group-toggle svg {
+        fill: currentColor;
+        transition: transform 0.3s ease;
+    }
+
+    .device-group.collapsed .group-toggle svg {
+        transform: rotate(-90deg);
+    }
+
+    .group-name {
+        font-size: var(--font-size-group-name-desktop);
+    }
+
+    .group-stats {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+        margin-left: auto;
+        margin-right: var(--spacing-group-stats-margin-desktop);
+    }
+
+    .group-stat {
+        display: flex;
+        align-items: center;
+        gap: var(--group-stat-gap-desktop);
+        font-size: var(--font-size-group-stat-desktop);
+        opacity: 0.85;
+        font-weight: 500;
+        padding: var(--group-stat-padding-desktop);
+        background: linear-gradient(135deg, rgba(233, 76, 175, 0.12), rgba(139, 92, 246, 0.12));
+        border: 1px solid rgba(233, 76, 175, 0.2);
+        border-radius: 8px;
+        white-space: nowrap;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+    }
+
+    .group-stat svg {
+        opacity: 0.8;
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+    }
+
+    .group-stat-warning {
+        background: rgba(var(--warning-color-rgb), 0.12) !important;
+        border-color: rgba(var(--warning-color-rgb), 0.3) !important;
+        color: var(--warning-color) !important;
+        min-height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .group-stat-warning svg {
+        fill: var(--warning-color) !important;
+        opacity: 1 !important;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    .group-count {
+        opacity: 0.6;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+    }
+
+    .group-content {
+        display: grid;
+        grid-template-columns: var(--grid-cols-desktop);
+        gap: var(--spacing-group-content-gap-desktop);
+        margin-top: 20px;
+        animation: slideDown 0.3s ease;
+        /* Enable container queries */
+        container-type: inline-size;
+        container-name: card-container;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Header */
+    .header {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: var(--header-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 8px 16px 8px 8px;
+        border-radius: 25px;
+        box-shadow: var(--header-shadow);
+        border: 1px solid var(--header-border);
+    }
+
+    .header button {
+        background: none;
+        border: none;
+        color: var(--text-color);
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        background-color: rgba(var(--border-color-rgb), 0.2);
+    }
+
+    .header button:hover {
+        background-color: rgba(var(--border-color-rgb), 0.4);
+        transform: translateY(-2px);
+    }
+
+    .header button:active {
+        transform: translateY(0px);
+    }
+
+    .header button svg {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+    }
+
+    /* Weather Group Styling */
+    .device-group[data-group="Outdoor Weather"] .group-header {
+        background: linear-gradient(90deg, rgba(233, 76, 175, 0.08) 0%, var(--card-bg) 100%);
+        border-left: 3px solid var(--primary-color);
+    }
+
+    .device-group[data-group="Outdoor Weather"] .group-name {
+        color: var(--text-color);
+    }
+
+    .device-group[data-group="Outdoor Weather"] .group-stats {
+        color: var(--text-color);
+    }
+
+    .device-group[data-group="Outdoor Weather"] .group-stat svg {
+        opacity: 0.7;
+    }
+
+    .device-group[data-group="Outdoor Weather"] .group-toggle svg {
+        fill: currentColor;
+    }
+
+    .device-group[data-group="Outdoor Weather"] .group-drag-handle svg {
+        fill: currentColor;
+    }
+}
+

@@ -1,0 +1,7 @@
+/* Theme Styles - Dark/Light Theme Overrides */
+
+@layer themes {
+    /* Theme-specific overrides are handled via CSS variables in _variables.css */
+    /* Additional theme-specific styles can be added here if needed */
+}
+

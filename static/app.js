@@ -83,6 +83,186 @@ function toggleTheme() {
 }
 
 // Layout handling (desktop/mobile)
+function updateCardsForLayout() {
+    // Update all cards to reflect current layout mode
+    const isDesktopLayout = isDesktopLayoutMode();
+    const allCards = document.querySelectorAll('.card');
+    
+    allCards.forEach(card => {
+        const roomName = card.getAttribute('data-room');
+        if (!roomName) return;
+        
+        const isStale = card.classList.contains('card-stale');
+        const isWeatherStation = card.classList.contains('weather-station');
+        const hasNoMetrics = card.classList.contains('card-no-metrics');
+        const hasMetrics = card.querySelectorAll('.metric').length > 0;
+        const headerRow = card.querySelector('.card-header-row');
+        
+        // Only process stale cards that aren't weather stations
+        if (!isStale || isWeatherStation) return;
+        
+        // Determine status from title attribute
+        const titleAttr = card.getAttribute('title');
+        const status = titleAttr === 'Missing' ? 'never_seen' : 'stale';
+        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+        
+        if (isDesktopLayout) {
+            // Desktop mode: convert card-no-metrics to full layout with placeholder metrics
+            if (hasNoMetrics && !hasMetrics) {
+                // Remove card-no-metrics class
+                card.classList.remove('card-no-metrics');
+                
+                // Get or create header row
+                let actualHeaderRow = headerRow;
+                const h2 = card.querySelector('h2');
+                if (!actualHeaderRow && h2) {
+                    // Move h2 into a new header row
+                    const compactMetrics = card.querySelector('.metrics-compact');
+                    actualHeaderRow = document.createElement('div');
+                    actualHeaderRow.className = 'card-header-row';
+                    h2.parentNode.insertBefore(actualHeaderRow, h2);
+                    actualHeaderRow.appendChild(h2);
+                    if (compactMetrics) {
+                        actualHeaderRow.appendChild(compactMetrics);
+                    }
+                }
+                
+                // Add placeholder metrics if they don't exist
+                if (!hasMetrics && actualHeaderRow) {
+                    const placeholderMetrics = `
+                        ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
+                        ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
+                        ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
+                    `;
+                    actualHeaderRow.insertAdjacentHTML('afterend', placeholderMetrics);
+                }
+            }
+            
+            // Ensure warning chip exists in header
+            const actualHeaderRow = card.querySelector('.card-header-row');
+            if (actualHeaderRow) {
+                const existingChip = actualHeaderRow.querySelector('.card-header-warning-chip');
+                if (!existingChip) {
+                    const chipHTML = `
+                        <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                            </svg>
+                        </span>
+                    `;
+                    const titleEl = actualHeaderRow.querySelector('h2');
+                    if (titleEl) {
+                        titleEl.insertAdjacentHTML('afterend', chipHTML);
+                    }
+                }
+            }
+        } else {
+            // Mobile mode: convert to mobile layout
+            // Remove warning chip from header (status shown in compact metrics instead)
+            if (headerRow) {
+                const warningChip = headerRow.querySelector('.card-header-warning-chip');
+                if (warningChip) {
+                    warningChip.remove();
+                }
+            }
+            
+            // If card has placeholder metrics (desktop layout), convert to mobile compact layout
+            const hasPlaceholderMetrics = card.querySelectorAll('.metric').length === 3 && 
+                card.querySelector('.metric .metric-value')?.textContent?.includes('-');
+            
+            if (hasPlaceholderMetrics && !hasNoMetrics) {
+                // Remove placeholder metrics
+                const metrics = card.querySelectorAll('.metric');
+                metrics.forEach(m => m.remove());
+                
+                // Add card-no-metrics class
+                card.classList.add('card-no-metrics');
+                
+                // Ensure compact metrics exist with status chip
+                let compactContainer = card.querySelector('.metrics-compact');
+                if (!compactContainer) {
+                    // Create compact metrics with status chip
+                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+                    const compactMetricsHTML = `
+                        <div class="metrics-compact">
+                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                </svg>
+                            </span>
+                        </div>
+                    `;
+                    const h2 = card.querySelector('h2');
+                    if (h2) {
+                        h2.insertAdjacentHTML('afterend', compactMetricsHTML);
+                    }
+                } else {
+                    // Ensure status chip is in compact metrics
+                    const statusChip = compactContainer.querySelector('.status-chip');
+                    if (!statusChip) {
+                        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+                        const chipHTML = `
+                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                </svg>
+                            </span>
+                        `;
+                        compactContainer.insertAdjacentHTML('beforeend', chipHTML);
+                    }
+                }
+                
+                // Remove header row structure for mobile (h2 should be direct child)
+                if (headerRow) {
+                    const h2 = headerRow.querySelector('h2');
+                    const compactMetrics = headerRow.querySelector('.metrics-compact');
+                    if (h2) {
+                        // Move h2 and compact metrics out of header row
+                        headerRow.parentNode.insertBefore(h2, headerRow);
+                        if (compactMetrics) {
+                            h2.insertAdjacentElement('afterend', compactMetrics);
+                        }
+                        headerRow.remove();
+                    }
+                }
+            } else if (hasNoMetrics) {
+                // Card already has card-no-metrics, just ensure compact metrics with status chip exists
+                let compactContainer = card.querySelector('.metrics-compact');
+                if (!compactContainer) {
+                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+                    const compactMetricsHTML = `
+                        <div class="metrics-compact">
+                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                </svg>
+                            </span>
+                        </div>
+                    `;
+                    const h2 = card.querySelector('h2');
+                    if (h2) {
+                        h2.insertAdjacentHTML('afterend', compactMetricsHTML);
+                    }
+                } else {
+                    // Ensure status chip is in compact metrics
+                    const statusChip = compactContainer.querySelector('.status-chip');
+                    if (!statusChip) {
+                        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+                        const chipHTML = `
+                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                </svg>
+                            </span>
+                        `;
+                        compactContainer.insertAdjacentHTML('beforeend', chipHTML);
+                    }
+                }
+            }
+        }
+    });
+}
+
 function toggleLayout() {
     const currentLayout = document.documentElement.getAttribute('data-layout');
     let newLayout;
@@ -100,6 +280,9 @@ function toggleLayout() {
     
     // Update button icons visibility
     updateLayoutIcon();
+    
+    // Update cards to reflect new layout mode (add/remove warning chips, etc.)
+    updateCardsForLayout();
 }
 
 function updateLayoutIcon() {

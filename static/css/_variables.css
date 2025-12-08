@@ -1,0 +1,107 @@
+/* CSS Custom Properties - Variables and Layout Tokens */
+
+:root {
+    /* Color Variables */
+    --bg-color: #f8f9fc;
+    --card-bg: #ffffff;
+    --text-color: #1a1f36;
+    --border-color: rgba(228, 231, 236, 0.6);
+    --primary-color: #e94caf;
+    --secondary-color: #8b5cf6;
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --warning-color-rgb: 255, 152, 0;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    --card-bg-rgb: 255, 255, 255;
+    --border-color-rgb: 228, 231, 236;
+    --header-bg: rgba(255, 255, 255, 0.85);
+    --header-border: rgba(255, 255, 255, 0.1);
+    --header-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    --gradient-primary: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    
+    /* Weather Variables */
+    --weather-accent: rgba(59, 130, 246, 0.3);
+    --weather-accent-light: rgba(96, 165, 250, 0.25);
+    --weather-bg: rgba(59, 130, 246, 0.015);
+    
+    /* Layout Tokens - Spacing */
+    --spacing-card-mobile: 12px 14px;
+    --spacing-card-desktop: 20px;
+    --spacing-body-mobile: 10px;
+    --spacing-body-desktop: 20px;
+    --spacing-body-top-mobile: 20px;
+    --spacing-body-top-desktop: 40px;
+    --spacing-body-bottom-mobile: 80px;
+    --spacing-body-bottom-desktop: 20px;
+    --spacing-container-gap-mobile: 20px;
+    --spacing-container-gap-desktop: 30px;
+    --spacing-group-header-padding-mobile: 12px 14px;
+    --spacing-group-header-padding-desktop: 16px 20px;
+    --spacing-group-content-gap-mobile: 8px;
+    --spacing-group-content-gap-desktop: 20px;
+    --spacing-group-stats-margin-mobile: 4px;
+    --spacing-group-stats-margin-desktop: 12px;
+    
+    /* Layout Tokens - Typography */
+    --font-size-title-mobile: clamp(0.85rem, 2vw, 1.2rem);
+    --font-size-title-desktop: 1.2rem;
+    --font-size-group-name-mobile: 0.9rem;
+    --font-size-group-name-desktop: 1.1rem;
+    --font-size-group-header-mobile: 0.85rem;
+    --font-size-group-header-desktop: 1rem;
+    --font-size-group-stat-mobile: 0.8rem;
+    --font-size-group-stat-desktop: 0.875rem;
+    --font-size-compact-metric-mobile: 0.8rem;
+    
+    /* Layout Tokens - Grid */
+    --grid-cols-mobile: 1fr;
+    --grid-cols-desktop: repeat(auto-fit, minmax(280px, 1fr));
+    
+    /* Layout Tokens - Card Display */
+    --card-display-mobile: flex;
+    --card-display-desktop: block;
+    --card-padding-mobile: 12px 14px;
+    --card-padding-desktop: 20px;
+    --card-border-radius-mobile: 12px;
+    --card-border-radius-desktop: 24px;
+    --card-width-mobile: calc(100% - 20px);
+    --card-width-desktop: auto;
+    --card-margin-mobile: 0 10px;
+    --card-margin-desktop: 0;
+    
+    /* Layout Tokens - Group Elements */
+    --group-toggle-size-mobile: 18px;
+    --group-toggle-size-desktop: 24px;
+    --group-drag-handle-width-mobile: 16px;
+    --group-drag-handle-width-desktop: 18px;
+    --group-drag-handle-height-mobile: 20px;
+    --group-drag-handle-height-desktop: 24px;
+    --group-drag-handle-svg-size-mobile: 14px;
+    --group-drag-handle-svg-size-desktop: 14px;
+    --group-header-gap-mobile: 6px;
+    --group-header-gap-desktop: 12px;
+    --group-stat-padding-mobile: 4px 6px;
+    --group-stat-padding-desktop: 4px 8px;
+    --group-stat-gap-mobile: 3px;
+    --group-stat-gap-desktop: 4px;
+}
+
+[data-theme="dark"] {
+    /* Color Variables - Dark Theme */
+    --bg-color: #0a0b0f;
+    --card-bg: #13141a;
+    --text-color: #ffffff;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    --card-bg-rgb: 19, 20, 26;
+    --border-color-rgb: 255, 255, 255;
+    --header-bg: rgba(19, 20, 26, 0.85);
+    --header-border: rgba(255, 255, 255, 0.05);
+    --header-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    
+    /* Weather Variables - Dark Theme */
+    --weather-accent: rgba(96, 165, 250, 0.35);
+    --weather-accent-light: rgba(147, 197, 253, 0.3);
+    --weather-bg: rgba(96, 165, 250, 0.025);
+}
+

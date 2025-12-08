@@ -4,6 +4,13 @@ FROM golang:1.25.4 AS builder
 # Set environment variables for cross-compilation
 ENV CGO_ENABLED=0
 
+# Install Node.js for CSS build
+RUN apt-get update && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    node --version && \
+    npm --version
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -18,6 +25,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # Copy the application source code and static files
 COPY . .
+
+# Build CSS before building Go application
+RUN node build-css.js
 
 # Build the Go application with additional security flags
 # Using verbose output to see what's being rebuilt
