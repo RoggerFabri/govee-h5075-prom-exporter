@@ -150,12 +150,26 @@
 
     .group-stat-warning {
         background: rgba(var(--warning-color-rgb), 0.12) !important;
-        border-color: rgba(var(--warning-color-rgb), 0.3) !important;
+        border: 1px solid rgba(var(--warning-color-rgb), 0.3) !important;
         color: var(--warning-color) !important;
-        min-height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
+        /* Match group-stat padding and sizing exactly */
+        padding: var(--group-stat-padding-desktop);
+        gap: var(--group-stat-gap-desktop);
+        font-size: var(--font-size-group-stat-desktop);
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.85;
+        border-radius: 8px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+        /* Ensure same height as chips with text: line-height determines height, not SVG */
+        /* With box-sizing: border-box, height includes padding and border */
+        /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) + border (1px top + 1px bottom = 2px) */
+        height: calc(1.2 * var(--font-size-group-stat-desktop) + 8px + 2px);
     }
 
     .group-stat-warning svg {

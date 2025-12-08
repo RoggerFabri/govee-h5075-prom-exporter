@@ -129,10 +129,25 @@
         }
 
         .group-stat-warning {
-            min-height: 25px;
             display: flex;
             align-items: center;
             justify-content: center;
+            /* Match group-stat padding and sizing exactly */
+            padding: var(--group-stat-padding-desktop);
+            gap: var(--group-stat-gap-desktop);
+            font-size: var(--font-size-group-stat-desktop);
+            font-weight: 500;
+            line-height: 1.2;
+            opacity: 0.85;
+            border: 1px solid rgba(var(--warning-color-rgb), 0.3);
+            border-radius: 8px;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum';
+            /* Ensure same height as chips with text: line-height determines height, not SVG */
+            /* With box-sizing: border-box, height includes padding and border */
+            /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) + border (1px top + 1px bottom = 2px) */
+            height: calc(1.2 * var(--font-size-group-stat-desktop) + 8px + 2px);
         }
     }
 
@@ -263,6 +278,28 @@
             opacity: 0.8;
         }
 
+        [data-layout="auto"] .group-stat-warning {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Match group-stat padding and sizing exactly */
+            padding: var(--group-stat-padding-mobile);
+            gap: var(--group-stat-gap-mobile);
+            font-size: var(--font-size-group-stat-mobile);
+            font-weight: 500;
+            line-height: 1.2;
+            opacity: 0.85;
+            border: 1px solid rgba(var(--warning-color-rgb), 0.3);
+            border-radius: 8px;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum';
+            /* Ensure same height as chips with text: line-height determines height, not SVG */
+            /* With box-sizing: border-box, height includes padding and border */
+            /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) + border (1px top + 1px bottom = 2px) */
+            height: calc(1.2 * var(--font-size-group-stat-mobile) + 8px + 2px);
+        }
+
         [data-layout="auto"] .header {
             padding: 8px;
         }
@@ -375,10 +412,25 @@
     }
 
     [data-layout="desktop"] .group-stat-warning {
-        min-height: 25px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        /* Match group-stat padding and sizing exactly */
+        padding: var(--group-stat-padding-desktop) !important;
+        gap: var(--group-stat-gap-desktop) !important;
+        font-size: var(--font-size-group-stat-desktop) !important;
+        font-weight: 500 !important;
+        line-height: 1.2 !important;
+        opacity: 0.85 !important;
+        border: 1px solid rgba(var(--warning-color-rgb), 0.3) !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        font-variant-numeric: tabular-nums !important;
+        font-feature-settings: 'tnum' !important;
+        /* Ensure same height as chips with text: line-height determines height, not SVG */
+        /* With box-sizing: border-box, height includes padding and border */
+        /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) + border (1px top + 1px bottom = 2px) */
+        height: calc(1.2 * var(--font-size-group-stat-desktop) + 8px + 2px) !important;
     }
 
     [data-layout="desktop"] .card {
@@ -519,6 +571,28 @@
     [data-layout="mobile"] .group-stat svg {
         width: 14px !important;
         height: 14px !important;
+    }
+
+    [data-layout="mobile"] .group-stat-warning {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        /* Match group-stat padding and sizing exactly */
+        padding: var(--group-stat-padding-mobile) !important;
+        gap: var(--group-stat-gap-mobile) !important;
+        font-size: var(--font-size-group-stat-mobile) !important;
+        font-weight: 500 !important;
+        line-height: 1.2 !important;
+        opacity: 0.85 !important;
+        border: 1px solid rgba(var(--warning-color-rgb), 0.3) !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        font-variant-numeric: tabular-nums !important;
+        font-feature-settings: 'tnum' !important;
+        /* Ensure same height as chips with text: line-height determines height, not SVG */
+        /* With box-sizing: border-box, height includes padding and border */
+        /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) + border (1px top + 1px bottom = 2px) */
+        height: calc(1.2 * var(--font-size-group-stat-mobile) + 8px + 2px) !important;
     }
 
     [data-layout="mobile"] .card {
