@@ -473,25 +473,6 @@ body {
     flex-shrink: 0;
 }
 
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
-.status-badge.status-stale,
-.status-badge.status-never_seen {
-    color: var(--warning-color);
-}
-
-.status-text {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: -8px 0 8px 0;
-}
 
 .status-chip {
     /* Inherits from compact-metric, just override specific properties */
@@ -956,7 +937,7 @@ body {
 
 .card.weather-station .card-footer {
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: var(--text-color);
     text-align: center;
     margin-top: 1rem;
     padding-top: 0.75rem;
@@ -973,12 +954,12 @@ body {
 }
 
 .device-group[data-group="Outdoor Weather"] .group-name {
-    color: var(--text-primary);
+    color: var(--text-color);
 }
 
 /* Weather group stats (average display) */
 .device-group[data-group="Outdoor Weather"] .group-stats {
-    color: var(--text-primary);
+    color: var(--text-color);
 }
 
 .device-group[data-group="Outdoor Weather"] .group-stat svg {
