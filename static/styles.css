@@ -318,7 +318,7 @@
 
     .card.card-no-metrics h2 {
         margin-bottom: 0;
-        font-size: var(--font-size-title-desktop);
+        font-size: var(--font-size-title-mobile);
         font-weight: 600;
         flex: 1;
         min-width: 0;
@@ -1091,6 +1091,13 @@
             padding: var(--group-stat-padding-desktop);
             gap: var(--group-stat-gap-desktop);
         }
+
+        .group-stat-warning {
+            min-height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     }
 
     /* Media Queries for Hover States */
@@ -1222,6 +1229,52 @@
 
         [data-layout="auto"] .header {
             padding: 8px;
+        }
+
+        [data-layout="auto"] .card.card-no-metrics {
+            padding: var(--card-padding-mobile) !important;
+            display: var(--card-display-mobile) !important;
+            align-items: center !important;
+            gap: 12px !important;
+            flex-wrap: wrap !important;
+            border-radius: var(--card-border-radius-mobile) !important;
+            width: var(--card-width-mobile) !important;
+            margin-left: 10px !important;
+            margin-right: 10px !important;
+        }
+
+        [data-layout="auto"] .card.card-no-metrics h2 {
+            font-size: var(--font-size-title-mobile) !important;
+            margin-bottom: 0 !important;
+            font-weight: 600 !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            flex-shrink: 1 !important;
+        }
+
+        [data-layout="auto"] .card.card-no-metrics .metrics-compact {
+            display: flex !important;
+            align-items: center;
+            gap: 2px;
+            flex-wrap: wrap;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        [data-layout="auto"] .card.card-no-metrics .metrics-compact .compact-metric {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: var(--font-size-compact-metric-mobile);
+            line-height: 1.2;
+            opacity: 0.75;
+            font-weight: 500;
+            padding: 4px 6px;
+            background-color: rgba(var(--border-color-rgb), 0.15);
+            border-radius: 8px;
         }
     }
 

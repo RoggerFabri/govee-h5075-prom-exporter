@@ -161,7 +161,7 @@
 
     .card.card-no-metrics h2 {
         margin-bottom: 0;
-        font-size: var(--font-size-title-desktop);
+        font-size: var(--font-size-title-mobile);
         font-weight: 600;
         flex: 1;
         min-width: 0;
