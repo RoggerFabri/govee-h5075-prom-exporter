@@ -61,6 +61,7 @@ var (
 
 type KnownGovee struct {
 	Name           string
+	DisplayName    string
 	Group          string
 	TempOffset     float64
 	HumidityOffset float64
@@ -115,9 +116,15 @@ func loadKnownGovees(config *Config) {
 			continue
 		}
 
+		displayName := device.Name
+		if device.DisplayName != "" {
+			displayName = device.DisplayName
+		}
+
 		mac := strings.ToUpper(device.MAC)
 		newMap[mac] = KnownGovee{
 			Name:           device.Name,
+			DisplayName:    displayName,
 			Group:          device.Group,
 			TempOffset:     device.Offsets.Temperature,
 			HumidityOffset: device.Offsets.Humidity,
@@ -138,10 +145,15 @@ func loadKnownGovees(config *Config) {
 			if device.Group != "" {
 				groupInfo = fmt.Sprintf(" [%s]", device.Group)
 			}
-			log.Printf("  %-17s -> Name: %-15s%s  TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
+			displayInfo := ""
+			if device.DisplayName != "" && device.DisplayName != device.Name {
+				displayInfo = fmt.Sprintf(" Display: %-15s", device.DisplayName)
+			}
+			log.Printf("  %-17s -> Name: %-15s%s%s  TempOffset: %4.1f°C  HumidityOffset: %4.1f%%",
 				mac,
 				device.Name,
 				groupInfo,
+				displayInfo,
 				device.TempOffset,
 				device.HumidityOffset)
 		}
@@ -633,8 +645,12 @@ func main() {
 		// Build device groups map
 		mutex.Lock()
 		deviceGroups := make(map[string]string)
+		deviceDisplayNames := make(map[string]string)
 		for _, device := range knownGovees {
 			deviceGroups[device.Name] = device.Group
+			if device.DisplayName != "" && device.DisplayName != device.Name {
+				deviceDisplayNames[device.Name] = device.DisplayName
+			}
 		}
 		mutex.Unlock()
 
@@ -643,6 +659,12 @@ func main() {
 		if err != nil {
 			log.Printf("Error marshaling device groups: %v", err)
 			deviceGroupsJSON = []byte("{}")
+		}
+
+		deviceDisplayNamesJSON, err := json.Marshal(deviceDisplayNames)
+		if err != nil {
+			log.Printf("Error marshaling device display names: %v", err)
+			deviceDisplayNamesJSON = []byte("{}")
 		}
 
 		configJS := fmt.Sprintf(`// Dashboard configuration from environment variables
@@ -654,7 +676,8 @@ window.DASHBOARD_CONFIG = {
     HUMIDITY_LOW_THRESHOLD: %v,
     HUMIDITY_HIGH_THRESHOLD: %v,
     BATTERY_LOW_THRESHOLD: %v,
-    DEVICE_GROUPS: %s
+    DEVICE_GROUPS: %s,
+    DEVICE_DISPLAY_NAMES: %s
 };`,
 			cfg.Thresholds.Temperature.Min,
 			cfg.Thresholds.Temperature.Max,
@@ -664,6 +687,7 @@ window.DASHBOARD_CONFIG = {
 			cfg.Thresholds.Humidity.High,
 			cfg.Thresholds.Battery.Low,
 			string(deviceGroupsJSON),
+			string(deviceDisplayNamesJSON),
 		)
 		w.Write([]byte(configJS))
 	})

@@ -13,6 +13,9 @@ if ('serviceWorker' in navigator) {
 
 // Configuration - Load from server or use defaults
 const CONFIG = window.DASHBOARD_CONFIG || {};
+const DEVICE_GROUPS = CONFIG.DEVICE_GROUPS || {};
+const DEVICE_DISPLAY_NAMES = CONFIG.DEVICE_DISPLAY_NAMES || {};
+const getDisplayName = (name) => DEVICE_DISPLAY_NAMES[name] || name;
 const REFRESH_INTERVAL = 30000;
 const MAX_TEMPERATURE = CONFIG.TEMPERATURE_MAX || 40;
 const MIN_TEMPERATURE = CONFIG.TEMPERATURE_MIN || -20;
@@ -527,7 +530,7 @@ async function fetchMetrics() {
         
         const text = await response.text();
         const rooms = {};
-        const deviceGroups = CONFIG.DEVICE_GROUPS || {};
+        const deviceGroups = DEVICE_GROUPS;
         const weatherData = {}; // Store OpenMeteo data
 
         // Update connection status
@@ -556,7 +559,8 @@ async function fetchMetrics() {
             const [, metric, name, value] = match;
             if (!rooms[name]) {
                 rooms[name] = {
-                    group: deviceGroups[name] || 'Ungrouped'
+                    group: deviceGroups[name] || 'Ungrouped',
+                    displayName: getDisplayName(name)
                 };
             }
             rooms[name][metric] = parseFloat(value);
@@ -564,8 +568,10 @@ async function fetchMetrics() {
         
         // Add OpenMeteo as a special "device" if data exists
         if (weatherData.temperature !== undefined || weatherData.humidity !== undefined) {
-            rooms['Outdoor'] = {
+            const name = 'Outdoor';
+            rooms[name] = {
                 group: 'Outdoor Weather',
+                displayName: getDisplayName(name),
                 temperature: weatherData.temperature,
                 humidity: weatherData.humidity,
                 // No battery for weather API data
@@ -597,12 +603,16 @@ async function fetchMetrics() {
             if (!groupedRooms[groupName]) {
                 groupedRooms[groupName] = [];
             }
-            groupedRooms[groupName].push({ name: room, data });
+            groupedRooms[groupName].push({ name: room, displayName: data.displayName || room, data });
         });
 
         // Sort rooms alphabetically within each group
         Object.keys(groupedRooms).forEach(groupName => {
-            groupedRooms[groupName].sort((a, b) => a.name.localeCompare(b.name));
+            groupedRooms[groupName].sort((a, b) => {
+                const aName = a.displayName || a.name;
+                const bName = b.displayName || b.name;
+                return aName.localeCompare(bName);
+            });
         });
 
         // Get sorted group names
@@ -667,8 +677,9 @@ async function fetchMetrics() {
             const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
             const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
             
-            const cardsHTML = roomsInGroup.map(({ name, data }) => {
+            const cardsHTML = roomsInGroup.map(({ name, displayName, data }) => {
                 const prev = previousValues[name] || {};
+                const title = escapeHtml(displayName || name);
                 
                 // Check if this is a weather station
                 const isWeatherStation = data.isWeatherStation || false;
@@ -686,7 +697,7 @@ async function fetchMetrics() {
                 
                 return `
                     <div class="${cardClass}" data-room="${escapeHtml(name)}">
-                        <h2>${escapeHtml(name)}</h2>
+                        <h2>${title}</h2>
                         ${compactMetrics}
                         ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
                         ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
@@ -787,11 +798,18 @@ async function fetchMetrics() {
                 }
                 
                 // Update cards within the group
-                roomsInGroup.forEach(({ name, data }) => {
+                roomsInGroup.forEach(({ name, displayName, data }) => {
                     const card = groupElement.querySelector(`.card[data-room="${CSS.escape(name)}"]`);
                     if (!card) return;
                     
                     const prev = previousValues[name] || {};
+
+                    // Ensure the card title reflects any display name
+                    const titleEl = card.querySelector('h2');
+                    const desiredTitle = displayName || name;
+                    if (titleEl && titleEl.textContent !== desiredTitle) {
+                        titleEl.textContent = desiredTitle;
+                    }
                     
                     // Update compact metrics (mobile view)
                     const compactContainer = card.querySelector('.metrics-compact');

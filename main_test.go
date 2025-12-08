@@ -17,8 +17,9 @@ func TestLoadKnownGovees(t *testing.T) {
 	testConfig := &Config{}
 	testConfig.Devices = []Device{
 		{
-			MAC:   "A4:C1:38:12:34:56",
-			Name:  "Living_Room",
+			MAC:  "A4:C1:38:12:34:56",
+			Name: "Living_Room",
+			// No display name -> should fall back to Name
 			Group: "Downstairs",
 			Offsets: struct {
 				Temperature float64 `mapstructure:"temperature"`
@@ -75,6 +76,37 @@ func TestLoadKnownGovees(t *testing.T) {
 		if got.Name != want.Name || got.Group != want.Group || got.TempOffset != want.TempOffset || got.HumidityOffset != want.HumidityOffset {
 			t.Errorf("device %s: got %+v, want %+v", mac, got, want)
 		}
+	}
+}
+
+func TestLoadKnownGoveesDisplayNames(t *testing.T) {
+	testConfig := &Config{
+		Devices: []Device{
+			{
+				MAC:         "AA:BB:CC:DD:EE:01",
+				Name:        "Basement",
+				DisplayName: "Basement (North)",
+			},
+			{
+				MAC:  "AA:BB:CC:DD:EE:02",
+				Name: "Garage",
+			},
+		},
+	}
+
+	loadKnownGovees(testConfig)
+
+	mutex.Lock()
+	first := knownGovees["AA:BB:CC:DD:EE:01"]
+	second := knownGovees["AA:BB:CC:DD:EE:02"]
+	mutex.Unlock()
+
+	if first.DisplayName != "Basement (North)" {
+		t.Fatalf("expected custom display name, got %q", first.DisplayName)
+	}
+
+	if second.DisplayName != "Garage" {
+		t.Fatalf("expected fallback to Name, got %q", second.DisplayName)
 	}
 }
 
@@ -400,7 +432,7 @@ func TestParseGoveeDataDuplicateSuppression(t *testing.T) {
 
 	// Test device
 	govee := KnownGovee{Name: "TestDevice", TempOffset: 0, HumidityOffset: 0}
-	
+
 	// Test data: 23.00°C, 50.00%, 49% battery
 	// Raw bytes: temperature=23.00 (2300), humidity=50.00 (500), battery=49 (0x31)
 	// Format: [0x01, temp_high, temp_mid, temp_low+hum_high, hum_low+battery]
@@ -431,21 +463,21 @@ func TestParseGoveeDataDuplicateSuppression(t *testing.T) {
 			description:    "Exact same values should be suppressed",
 		},
 		{
-			name:           "Temperature change beyond epsilon should be logged",
+			name: "Temperature change beyond epsilon should be logged",
 			// 23.01°C, 50.00%, 49% = 23010 + 500 = 23510 = 0x005BE6
 			data:           []byte{0x01, 0x00, 0x5B, 0xE6, 0x31},
 			expectedLogged: true,
 			description:    "Temperature change >= 0.01°C should be logged",
 		},
 		{
-			name:           "Humidity change beyond epsilon should be logged",
+			name: "Humidity change beyond epsilon should be logged",
 			// 23.01°C, 50.01%, 49% = 23010 + 501 = 23511 = 0x005BE7
 			data:           []byte{0x01, 0x00, 0x5B, 0xE7, 0x31},
 			expectedLogged: true,
 			description:    "Humidity change >= 0.01% should be logged",
 		},
 		{
-			name:           "Battery change should always be logged",
+			name: "Battery change should always be logged",
 			// 23.01°C, 50.01%, 50% = 23010 + 501 = 23511 = 0x005BE7, battery 50
 			data:           []byte{0x01, 0x00, 0x5B, 0xE7, 0x32},
 			expectedLogged: true,
