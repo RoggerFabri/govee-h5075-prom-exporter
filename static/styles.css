@@ -1150,6 +1150,16 @@ body {
     margin-right: 10px !important;
 }
 
+[data-layout="mobile"] .card .card-header-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 0 !important;
+    width: 100% !important;
+}
+
 [data-layout="mobile"] .card h2 {
     margin-bottom: 0 !important;
     font-size: 0.85rem !important;
