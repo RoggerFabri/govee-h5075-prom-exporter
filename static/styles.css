@@ -49,7 +49,7 @@
     --spacing-group-stats-margin-desktop: 12px;
     
     /* Layout Tokens - Typography */
-    --font-size-title-mobile: clamp(0.85rem, 2vw, 1.2rem);
+    --font-size-title-mobile: 0.85rem;
     --font-size-title-desktop: 1.2rem;
     --font-size-group-name-mobile: 0.9rem;
     --font-size-group-name-desktop: 1.1rem;

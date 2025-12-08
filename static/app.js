@@ -1,21 +1,14 @@
-// Register Service Worker for PWA functionality
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-            .then((registration) => {
-                console.log('ServiceWorker registered:', registration.scope);
-            })
-            .catch((error) => {
-                console.log('ServiceWorker registration failed:', error);
-            });
-    });
-}
+/* ============================================
+   Source: static/js/config.js
+   ============================================ */
 
 // Configuration - Load from server or use defaults
 const CONFIG = window.DASHBOARD_CONFIG || {};
 const DEVICE_GROUPS = CONFIG.DEVICE_GROUPS || {};
 const DEVICE_DISPLAY_NAMES = CONFIG.DEVICE_DISPLAY_NAMES || {};
+
 const getDisplayName = (name) => DEVICE_DISPLAY_NAMES[name] || name;
+
 const REFRESH_INTERVAL = 30000;
 const MAX_TEMPERATURE = CONFIG.TEMPERATURE_MAX || 40;
 const MIN_TEMPERATURE = CONFIG.TEMPERATURE_MIN || -20;
@@ -26,7 +19,77 @@ const HUMIDITY_HIGH_THRESHOLD = CONFIG.HUMIDITY_HIGH_THRESHOLD || 70;
 const BATTERY_LOW_THRESHOLD = CONFIG.BATTERY_LOW_THRESHOLD || 5;
 const CONNECTION_TIMEOUT = 5000;
 
-// Connection state tracking
+
+
+/* ============================================
+   Source: static/js/layout.js
+   ============================================ */
+
+// Layout mode detection and management
+
+function isDesktopLayoutMode() {
+    // Check if document is available (defensive check)
+    if (!document || !document.documentElement) {
+        return window.innerWidth > 600; // Fallback to screen width
+    }
+    
+    const layout = document.documentElement.getAttribute('data-layout');
+    // Explicit desktop mode
+    if (layout === 'desktop') {
+        return true;
+    }
+    // Explicit mobile mode
+    if (layout === 'mobile') {
+        return false;
+    }
+    // Auto mode or no layout set: check screen width (desktop if > 600px, matching CSS media query)
+    return window.innerWidth > 600;
+}
+
+function updateLayoutIcon() {
+    const layout = document.documentElement.getAttribute('data-layout') || 'auto';
+    const button = document.querySelector('.layout-toggle');
+    
+    if (button) {
+        // Remove all state classes
+        button.classList.remove('layout-mobile', 'layout-desktop', 'layout-auto');
+        // Add current state class
+        button.classList.add(`layout-${layout}`);
+    }
+}
+
+function toggleLayout() {
+    const currentLayout = document.documentElement.getAttribute('data-layout');
+    let newLayout;
+    
+    if (currentLayout === 'mobile') {
+        newLayout = 'desktop';
+    } else if (currentLayout === 'desktop') {
+        newLayout = 'auto';
+    } else {
+        newLayout = 'mobile';
+    }
+    
+    document.documentElement.setAttribute('data-layout', newLayout);
+    localStorage.setItem('layout', newLayout);
+    
+    // Update button icons visibility
+    updateLayoutIcon();
+    
+    // Trigger layout update callback if it exists
+    if (window.onLayoutChange) {
+        window.onLayoutChange();
+    }
+}
+
+
+
+/* ============================================
+   Source: static/js/connectivity.js
+   ============================================ */
+
+// Connection status tracking
+
 let lastSuccessfulFetch = Date.now();
 
 // Check connection status periodically
@@ -39,6 +102,8 @@ setInterval(() => {
 
 function updateConnectivityStatus(status) {
     const indicator = document.querySelector('.connectivity-indicator');
+    if (!indicator) return;
+    
     const prevState = indicator.className.split(' ')[1];
     
     if (prevState !== status) {
@@ -63,278 +128,118 @@ function updateConnectivityStatus(status) {
     }
 }
 
-// Format timestamp
-function formatLastUpdate() {
-    const now = new Date();
-    return now.toLocaleTimeString();
+function markFetchSuccess() {
+    lastSuccessfulFetch = Date.now();
+    updateConnectivityStatus('connected');
 }
 
-// Update timestamp display
-function updateTimestamp() {
-    const timestampEl = document.querySelector('.last-update .timestamp');
-    timestampEl.textContent = `Last updated: ${formatLastUpdate()}`;
-}
 
-// Theme handling
-function toggleTheme() {
-    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-}
 
-// Layout handling (desktop/mobile)
-function updateCardsForLayout() {
-    // Update all cards to reflect current layout mode
-    const isDesktopLayout = isDesktopLayoutMode();
-    const allCards = document.querySelectorAll('.card');
+/* ============================================
+   Source: static/js/metrics-parser.js
+   ============================================ */
+
+// Metrics parsing from Prometheus format
+
+function parseMetrics(text) {
+    const rooms = {};
+    const statusByDevice = {};
+    const weatherData = {};
     
-    allCards.forEach(card => {
-        const roomName = card.getAttribute('data-room');
-        if (!roomName) return;
+    // Parse metrics text into room data and weather data
+    text.split('\n').forEach(line => {
+        if (!line || line.startsWith('#')) return; // Skip empty lines and comments
         
-        const isStale = card.classList.contains('card-stale');
-        const isWeatherStation = card.classList.contains('weather-station');
-        const hasNoMetrics = card.classList.contains('card-no-metrics');
-        const hasMetrics = card.querySelectorAll('.metric').length > 0;
-        const headerRow = card.querySelector('.card-header-row');
+        // Parse OpenMeteo metrics (no labels, just metric name and value)
+        const weatherMatch = line.match(/openmeteo_(\w+)\s+([-\d.]+)/);
+        if (weatherMatch) {
+            const [, metric, value] = weatherMatch;
+            weatherData[metric] = parseFloat(value);
+            return;
+        }
+
+        // Parse device status metrics
+        const statusMatch = line.match(/govee_device_status\{name="([^"]+)",status="([^"]+)"\}\s+([-\d.]+)/);
+        if (statusMatch) {
+            const [, name, status, value] = statusMatch;
+            const numericValue = parseFloat(value);
+            if (numericValue >= 0.5) {
+                statusByDevice[name] = status;
+            }
+            return;
+        }
         
-        // Only process stale cards that aren't weather stations
-        if (!isStale || isWeatherStation) return;
+        // Parse Govee sensor metrics
+        const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([-\d.]+)/);
+        if (!match) return;
         
-        // Determine status from title attribute
-        const titleAttr = card.getAttribute('title');
-        const status = titleAttr === 'Missing' ? 'never_seen' : 'stale';
-        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-        
-        if (isDesktopLayout) {
-            // Desktop mode: convert card-no-metrics to full layout with placeholder metrics
-            if (hasNoMetrics && !hasMetrics) {
-                // Remove card-no-metrics class
-                card.classList.remove('card-no-metrics');
-                
-                // Get or create header row
-                let actualHeaderRow = headerRow;
-                const h2 = card.querySelector('h2');
-                if (!actualHeaderRow && h2) {
-                    // Move h2 into a new header row
-                    const compactMetrics = card.querySelector('.metrics-compact');
-                    actualHeaderRow = document.createElement('div');
-                    actualHeaderRow.className = 'card-header-row';
-                    h2.parentNode.insertBefore(actualHeaderRow, h2);
-                    actualHeaderRow.appendChild(h2);
-                    if (compactMetrics) {
-                        actualHeaderRow.appendChild(compactMetrics);
-                    }
-                }
-                
-                // Add placeholder metrics if they don't exist
-                if (!hasMetrics && actualHeaderRow) {
-                    const placeholderMetrics = `
-                        ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
-                        ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
-                        ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
-                    `;
-                    actualHeaderRow.insertAdjacentHTML('afterend', placeholderMetrics);
-                }
-            }
-            
-            // Ensure warning chip exists in header
-            const actualHeaderRow = card.querySelector('.card-header-row');
-            if (actualHeaderRow) {
-                const existingChip = actualHeaderRow.querySelector('.card-header-warning-chip');
-                if (!existingChip) {
-                    const chipHTML = `
-                        <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                            </svg>
-                        </span>
-                    `;
-                    const titleEl = actualHeaderRow.querySelector('h2');
-                    if (titleEl) {
-                        titleEl.insertAdjacentHTML('afterend', chipHTML);
-                    }
-                }
-            }
-        } else {
-            // Mobile mode: convert to mobile layout
-            // Remove warning chip from header (status shown in compact metrics instead)
-            if (headerRow) {
-                const warningChip = headerRow.querySelector('.card-header-warning-chip');
-                if (warningChip) {
-                    warningChip.remove();
-                }
-            }
-            
-            // If card has placeholder metrics (desktop layout), convert to mobile compact layout
-            const hasPlaceholderMetrics = card.querySelectorAll('.metric').length === 3 && 
-                card.querySelector('.metric .metric-value')?.textContent?.includes('-');
-            
-            if (hasPlaceholderMetrics && !hasNoMetrics) {
-                // Remove placeholder metrics
-                const metrics = card.querySelectorAll('.metric');
-                metrics.forEach(m => m.remove());
-                
-                // Add card-no-metrics class
-                card.classList.add('card-no-metrics');
-                
-                // Ensure compact metrics exist with status chip
-                let compactContainer = card.querySelector('.metrics-compact');
-                if (!compactContainer) {
-                    // Create compact metrics with status chip
-                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-                    const compactMetricsHTML = `
-                        <div class="metrics-compact">
-                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                </svg>
-                            </span>
-                        </div>
-                    `;
-                    const h2 = card.querySelector('h2');
-                    if (h2) {
-                        h2.insertAdjacentHTML('afterend', compactMetricsHTML);
-                    }
-                } else {
-                    // Ensure status chip is in compact metrics
-                    const statusChip = compactContainer.querySelector('.status-chip');
-                    if (!statusChip) {
-                        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-                        const chipHTML = `
-                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                </svg>
-                            </span>
-                        `;
-                        compactContainer.insertAdjacentHTML('beforeend', chipHTML);
-                    }
-                }
-                
-                // Remove header row structure for mobile (h2 should be direct child)
-                if (headerRow) {
-                    const h2 = headerRow.querySelector('h2');
-                    const compactMetrics = headerRow.querySelector('.metrics-compact');
-                    if (h2) {
-                        // Move h2 and compact metrics out of header row
-                        headerRow.parentNode.insertBefore(h2, headerRow);
-                        if (compactMetrics) {
-                            h2.insertAdjacentElement('afterend', compactMetrics);
-                        }
-                        headerRow.remove();
-                    }
-                }
-            } else if (hasNoMetrics) {
-                // Card already has card-no-metrics, just ensure compact metrics with status chip exists
-                let compactContainer = card.querySelector('.metrics-compact');
-                if (!compactContainer) {
-                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-                    const compactMetricsHTML = `
-                        <div class="metrics-compact">
-                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                </svg>
-                            </span>
-                        </div>
-                    `;
-                    const h2 = card.querySelector('h2');
-                    if (h2) {
-                        h2.insertAdjacentHTML('afterend', compactMetricsHTML);
-                    }
-                } else {
-                    // Ensure status chip is in compact metrics
-                    const statusChip = compactContainer.querySelector('.status-chip');
-                    if (!statusChip) {
-                        const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-                        const chipHTML = `
-                            <span class="compact-metric status-chip status-${status}" title="${statusLabel}" role="status">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                </svg>
-                            </span>
-                        `;
-                        compactContainer.insertAdjacentHTML('beforeend', chipHTML);
-                    }
-                }
-            }
+        const [, metric, name, value] = match;
+        if (!rooms[name]) {
+            rooms[name] = {
+                group: DEVICE_GROUPS[name] || 'Ungrouped',
+                displayName: getDisplayName(name)
+            };
+        }
+        rooms[name][metric] = parseFloat(value);
+    });
+
+    // Ensure all devices with status are represented in the UI
+    Object.entries(statusByDevice).forEach(([name, status]) => {
+        if (!rooms[name]) {
+            rooms[name] = {
+                group: DEVICE_GROUPS[name] || 'Ungrouped',
+                displayName: getDisplayName(name)
+            };
+        }
+        rooms[name].status = status;
+    });
+
+    // Apply status to devices that already had metrics
+    Object.entries(rooms).forEach(([name, data]) => {
+        if (statusByDevice[name]) {
+            data.status = statusByDevice[name];
         }
     });
-}
-
-function toggleLayout() {
-    const currentLayout = document.documentElement.getAttribute('data-layout');
-    let newLayout;
     
-    if (currentLayout === 'mobile') {
-        newLayout = 'desktop';
-    } else if (currentLayout === 'desktop') {
-        newLayout = 'auto';
-    } else {
-        newLayout = 'mobile';
+    // Add OpenMeteo as a special "device" if data exists
+    if (weatherData.temperature !== undefined || weatherData.humidity !== undefined) {
+        const name = 'Outdoor';
+        rooms[name] = {
+            group: 'Outdoor Weather',
+            displayName: getDisplayName(name),
+            temperature: weatherData.temperature,
+            humidity: weatherData.humidity,
+            // No battery for weather API data
+            isWeatherStation: true
+        };
     }
     
-    document.documentElement.setAttribute('data-layout', newLayout);
-    localStorage.setItem('layout', newLayout);
-    
-    // Update button icons visibility
-    updateLayoutIcon();
-    
-    // Update cards to reflect new layout mode (add/remove warning chips, etc.)
-    updateCardsForLayout();
+    return rooms;
 }
 
-function updateLayoutIcon() {
-    const layout = document.documentElement.getAttribute('data-layout') || 'auto';
-    const button = document.querySelector('.layout-toggle');
-    
-    if (button) {
-        // Remove all state classes
-        button.classList.remove('layout-mobile', 'layout-desktop', 'layout-auto');
-        // Add current state class
-        button.classList.add(`layout-${layout}`);
-    }
-}
 
-// Progress bar animation
-function startProgressBar() {
-    const progressBar = document.getElementById('refreshProgress');
-    progressBar.style.transition = 'none';
-    progressBar.style.transform = 'scaleX(1)';
-    progressBar.offsetHeight; // Force reflow
-    progressBar.style.transition = `transform ${REFRESH_INTERVAL/1000}s linear`;
-    progressBar.style.transform = 'scaleX(0)';
-}
 
-// Helper function to determine if we're in desktop layout
-function isDesktopLayoutMode() {
-    // Check if document is available (defensive check)
-    if (!document || !document.documentElement) {
-        return window.innerWidth > 600; // Fallback to screen width
-    }
-    
-    const layout = document.documentElement.getAttribute('data-layout');
-    // Explicit desktop mode
-    if (layout === 'desktop') {
-        return true;
-    }
-    // Explicit mobile mode
-    if (layout === 'mobile') {
-        return false;
-    }
-    // Auto mode or no layout set: check screen width (desktop if > 600px, matching CSS media query)
-    return window.innerWidth > 600;
-}
+/* ============================================
+   Source: static/js/card-renderer.js
+   ============================================ */
 
-// Updated utility functions
+// CardRenderer - Single source of truth for all card rendering logic
+
+// Helper function to normalize temperature
 function normalizeTemp(temp) {
-    // Normalize temperature to 0-100% range, supporting negative temperatures
     const tempRange = MAX_TEMPERATURE - MIN_TEMPERATURE;
     const normalizedTemp = ((temp - MIN_TEMPERATURE) / tempRange) * 100;
     return Math.max(0, Math.min(100, normalizedTemp));
 }
 
+// Helper function to escape HTML
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Helper function to create metric element
 function createMetricElement(label, value, unit, type, previousValue = null, showPlaceholder = false) {
     if (showPlaceholder) {
         return `
@@ -362,9 +267,6 @@ function createMetricElement(label, value, unit, type, previousValue = null, sho
     const showHotWarning = type === 'temperature' && value > TEMPERATURE_HIGH_THRESHOLD;
     const showHighHumidityWarning = type === 'humidity' && value > HUMIDITY_HIGH_THRESHOLD;
     const showLowHumidityWarning = type === 'humidity' && value < HUMIDITY_LOW_THRESHOLD;
-    const showHumidityWarning = showHighHumidityWarning || showLowHumidityWarning;
-    const showTemperatureWarning = showFreezingWarning || showHotWarning;
-    const showWarning = showBatteryWarning || showTemperatureWarning || showHumidityWarning;
     const hasChanged = previousValue !== null && Math.abs(value - previousValue) >= 0.1;
     const changeClass = hasChanged ? 'changed' : '';
     
@@ -440,224 +342,7 @@ function createMetricElement(label, value, unit, type, previousValue = null, sho
     `;
 }
 
-// Store expanded state of groups and group order
-const expandedGroups = new Set();
-let groupOrder = [];
-
-// Load persisted state from localStorage
-function loadPersistedState() {
-    // Load expanded groups
-    const savedExpanded = localStorage.getItem('expandedGroups');
-    if (savedExpanded) {
-        try {
-            const expanded = JSON.parse(savedExpanded);
-            expanded.forEach(group => expandedGroups.add(group));
-        } catch (e) {
-            console.error('Error loading expanded groups:', e);
-        }
-    }
-    
-    // Load group order
-    const savedOrder = localStorage.getItem('groupOrder');
-    if (savedOrder) {
-        try {
-            groupOrder = JSON.parse(savedOrder);
-        } catch (e) {
-            console.error('Error loading group order:', e);
-            groupOrder = [];
-        }
-    }
-}
-
-// Save expanded state to localStorage
-function saveExpandedState() {
-    localStorage.setItem('expandedGroups', JSON.stringify([...expandedGroups]));
-}
-
-// Save group order to localStorage
-function saveGroupOrder() {
-    localStorage.setItem('groupOrder', JSON.stringify(groupOrder));
-}
-
-function toggleGroup(groupElement) {
-    const groupName = groupElement.getAttribute('data-group');
-    if (!groupName) return;
-    
-    if (expandedGroups.has(groupName)) {
-        expandedGroups.delete(groupName);
-    } else {
-        expandedGroups.add(groupName);
-    }
-    
-    const content = groupElement.querySelector('.group-content');
-    const toggle = groupElement.querySelector('.group-toggle');
-    const isExpanded = expandedGroups.has(groupName);
-    
-    content.style.display = isExpanded ? 'grid' : 'none';
-    toggle.setAttribute('aria-expanded', isExpanded);
-    groupElement.classList.toggle('collapsed', !isExpanded);
-    
-    // Persist the expanded state
-    saveExpandedState();
-}
-
-// Drag and drop functionality
-let draggedElement = null;
-let isDragging = false;
-let placeholder = null;
-
-function handleDragStart(e) {
-    draggedElement = e.target.closest('.device-group');
-    if (draggedElement) {
-        draggedElement.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', draggedElement.innerHTML);
-    }
-}
-
-function handleDragOver(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
-    }
-    e.dataTransfer.dropEffect = 'move';
-    
-    const target = e.target.closest('.device-group');
-    if (target && target !== draggedElement) {
-        const container = document.getElementById('sensors-container');
-        const allGroups = [...container.querySelectorAll('.device-group')];
-        const draggedIndex = allGroups.indexOf(draggedElement);
-        const targetIndex = allGroups.indexOf(target);
-        
-        if (draggedIndex < targetIndex) {
-            target.parentNode.insertBefore(draggedElement, target.nextSibling);
-        } else {
-            target.parentNode.insertBefore(draggedElement, target);
-        }
-    }
-    
-    return false;
-}
-
-function handleDragEnd(e) {
-    if (draggedElement) {
-        draggedElement.classList.remove('dragging');
-        
-        // Save the new order
-        const container = document.getElementById('sensors-container');
-        const allGroups = [...container.querySelectorAll('.device-group')];
-        groupOrder = allGroups.map(group => group.getAttribute('data-group'));
-        saveGroupOrder();
-    }
-    draggedElement = null;
-}
-
-function handleDrop(e) {
-    if (e.stopPropagation) {
-        e.stopPropagation();
-    }
-    return false;
-}
-
-// Touch event handlers for mobile
-function handleTouchStart(e) {
-    const dragHandle = e.target.closest('.group-drag-handle');
-    if (!dragHandle) return;
-    
-    draggedElement = e.target.closest('.device-group');
-    if (!draggedElement) return;
-    
-    isDragging = true;
-    
-    // Add visual feedback
-    draggedElement.classList.add('dragging');
-    
-    // Create placeholder
-    placeholder = document.createElement('div');
-    placeholder.className = 'group-placeholder';
-    placeholder.style.height = draggedElement.offsetHeight + 'px';
-    
-    e.preventDefault();
-}
-
-function handleTouchMove(e) {
-    if (!isDragging || !draggedElement) return;
-    
-    e.preventDefault();
-    
-    const touch = e.touches[0];
-    const currentY = touch.clientY;
-    const currentX = touch.clientX;
-    
-    // Move the element
-    draggedElement.style.position = 'fixed';
-    draggedElement.style.zIndex = '1000';
-    draggedElement.style.left = '10px';
-    draggedElement.style.right = '10px';
-    draggedElement.style.width = 'calc(100% - 20px)';
-    draggedElement.style.top = (currentY - 30) + 'px';
-    draggedElement.style.pointerEvents = 'none';
-    
-    // Insert placeholder if not already in DOM
-    if (!placeholder.parentNode) {
-        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-    }
-    
-    // Find the element we're hovering over
-    const elementBelow = document.elementFromPoint(currentX, currentY);
-    const groupBelow = elementBelow?.closest('.device-group:not(.dragging)');
-    
-    if (groupBelow && groupBelow !== draggedElement) {
-        const container = document.getElementById('sensors-container');
-        const allGroups = [...container.querySelectorAll('.device-group:not(.dragging)')];
-        const belowIndex = allGroups.indexOf(groupBelow);
-        const placeholderIndex = allGroups.indexOf(placeholder);
-        
-        if (belowIndex !== -1) {
-            const rect = groupBelow.getBoundingClientRect();
-            const middle = rect.top + rect.height / 2;
-            
-            if (currentY < middle) {
-                groupBelow.parentNode.insertBefore(placeholder, groupBelow);
-            } else {
-                groupBelow.parentNode.insertBefore(placeholder, groupBelow.nextSibling);
-            }
-        }
-    }
-}
-
-function handleTouchEnd(e) {
-    if (!isDragging || !draggedElement) return;
-    
-    e.preventDefault();
-    
-    // Reset styles
-    draggedElement.style.position = '';
-    draggedElement.style.zIndex = '';
-    draggedElement.style.left = '';
-    draggedElement.style.right = '';
-    draggedElement.style.width = '';
-    draggedElement.style.top = '';
-    draggedElement.style.pointerEvents = '';
-    draggedElement.classList.remove('dragging');
-    
-    // Replace placeholder with dragged element
-    if (placeholder && placeholder.parentNode) {
-        placeholder.parentNode.insertBefore(draggedElement, placeholder);
-        placeholder.remove();
-    }
-    
-    // Save the new order
-    const container = document.getElementById('sensors-container');
-    const allGroups = [...container.querySelectorAll('.device-group')];
-    groupOrder = allGroups.map(group => group.getAttribute('data-group'));
-    saveGroupOrder();
-    
-    // Reset state
-    isDragging = false;
-    draggedElement = null;
-    placeholder = null;
-}
-
+// Helper function to create compact metrics
 function createCompactMetrics(data, excludeStatusChip = false) {
     const metrics = [];
     
@@ -748,6 +433,745 @@ function createCompactMetrics(data, excludeStatusChip = false) {
     return `<div class="metrics-compact">${metrics.join('')}</div>`;
 }
 
+class CardRenderer {
+    // Build render context - make all decisions in one place
+    buildRenderContext(deviceData, layoutMode) {
+        const isDesktop = layoutMode === 'desktop' || (layoutMode === 'auto' && window.innerWidth > 600);
+        const status = deviceData.status || 'active';
+        const isStale = status === 'stale' || status === 'never_seen';
+        const hasMetrics = typeof deviceData.temperature !== 'undefined' || 
+                          typeof deviceData.humidity !== 'undefined' || 
+                          typeof deviceData.battery !== 'undefined';
+        const isWeatherStation = deviceData.isWeatherStation || false;
+        
+        const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktop;
+        const shouldAddNoMetricsClass = !hasMetrics && !shouldShowPlaceholderMetrics;
+        
+        return {
+            isDesktop,
+            isStale,
+            hasMetrics,
+            isWeatherStation,
+            status,
+            shouldShowPlaceholderMetrics,
+            shouldAddNoMetricsClass,
+            statusLabel: isStale && !isWeatherStation 
+                ? (status === 'never_seen' ? 'Missing' : 'Stale')
+                : ''
+        };
+    }
+    
+    // Create warning chip HTML
+    createWarningChip(status, label) {
+        return `
+            <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${label}" role="status">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+            </span>
+        `;
+    }
+    
+    // Create status chip for compact metrics
+    createStatusChip(status, label) {
+        return `
+            <span class="compact-metric status-chip status-${status}" title="${label}" role="status">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+            </span>
+        `;
+    }
+    
+    // Create placeholder metrics HTML
+    createPlaceholderMetrics() {
+        return `
+            ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
+            ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
+            ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
+        `;
+    }
+    
+    // Render card HTML - single method for all card rendering
+    renderCardHTML(deviceName, deviceData, previousValues = {}, layoutMode = 'auto') {
+        const context = this.buildRenderContext(deviceData, layoutMode);
+        const title = escapeHtml(deviceData.displayName || deviceName);
+        const baseClass = context.isWeatherStation ? 'card weather-station' : 'card';
+        const cardClass = baseClass + 
+            (context.isStale ? ' card-stale' : '') + 
+            (context.shouldAddNoMetricsClass ? ' card-no-metrics' : '');
+        
+        const statusTooltip = context.statusLabel ? ` title="${context.statusLabel}"` : '';
+        
+        // Create compact metrics (exclude status chip in desktop when showing placeholder metrics)
+        const excludeStatusChip = context.isDesktop && context.shouldShowPlaceholderMetrics;
+        const compactMetrics = createCompactMetrics(deviceData, excludeStatusChip);
+        
+        // Weather station footer
+        const weatherFooter = context.isWeatherStation ? `
+            <div class="card-footer">
+                <small>Source: Open-Meteo API</small>
+            </div>
+        ` : '';
+        
+        // Metrics block
+        const metricsBlock = context.hasMetrics ? `
+            ${typeof deviceData.temperature !== 'undefined' ? createMetricElement('Temperature', deviceData.temperature.toFixed(1), '°C', 'temperature', previousValues.temperature) : ''}
+            ${typeof deviceData.humidity !== 'undefined' ? createMetricElement('Humidity', deviceData.humidity.toFixed(1), '%', 'humidity', previousValues.humidity) : ''}
+            ${typeof deviceData.battery !== 'undefined' ? createMetricElement('Battery', Math.round(deviceData.battery), '%', 'battery', previousValues.battery) : ''}
+        ` : '';
+        
+        // Warning chip for desktop layout
+        const warningChip = context.statusLabel && context.isDesktop ? 
+            this.createWarningChip(context.status, context.statusLabel) : '';
+        
+        // For missing/stale devices without metrics in mobile/auto: simpler structure
+        if (!context.hasMetrics && context.isStale && !context.isWeatherStation && !context.isDesktop) {
+            return `
+                <div class="${cardClass}" data-room="${escapeHtml(deviceName)}"${statusTooltip}>
+                    <h2>${title}</h2>
+                    ${compactMetrics}
+                </div>
+            `;
+        }
+        
+        // For desktop: show placeholder metrics for stale devices without metrics
+        const finalMetricsBlock = context.shouldShowPlaceholderMetrics 
+            ? this.createPlaceholderMetrics()
+            : metricsBlock;
+        
+        return `
+            <div class="${cardClass}" data-room="${escapeHtml(deviceName)}"${statusTooltip}>
+                <div class="card-header-row">
+                    <h2>${title}</h2>
+                    ${warningChip}
+                    ${compactMetrics}
+                </div>
+                ${finalMetricsBlock}
+                ${weatherFooter}
+            </div>
+        `;
+    }
+    
+    // Update existing card DOM element based on new context
+    updateCardElement(cardElement, deviceData, previousValues = {}, layoutMode = 'auto') {
+        const context = this.buildRenderContext(deviceData, layoutMode);
+        const roomName = cardElement.getAttribute('data-room');
+        if (!roomName) return;
+        
+        // Update classes
+        cardElement.classList.toggle('card-stale', context.isStale && !context.isWeatherStation);
+        cardElement.classList.toggle('card-no-metrics', context.shouldAddNoMetricsClass);
+        
+        // Update tooltip
+        if (context.statusLabel) {
+            cardElement.setAttribute('title', context.statusLabel);
+        } else {
+            cardElement.removeAttribute('title');
+        }
+        
+        // Update title if display name changed
+        const titleEl = cardElement.querySelector('h2');
+        const desiredTitle = deviceData.displayName || roomName;
+        if (titleEl && titleEl.textContent !== desiredTitle) {
+            titleEl.textContent = desiredTitle;
+        }
+        
+        // Handle layout-specific updates
+        if (context.isDesktop) {
+            this.updateCardForDesktop(cardElement, context, deviceData);
+        } else {
+            this.updateCardForMobile(cardElement, context, deviceData);
+        }
+        
+        // Update metric values if they exist
+        this.updateMetricValues(cardElement, deviceData, previousValues);
+    }
+    
+    // Update card for desktop layout
+    updateCardForDesktop(cardElement, context, deviceData) {
+        // Convert card-no-metrics to full layout with placeholder metrics
+        // Check if card currently has card-no-metrics class OR if we need to show placeholder metrics
+        const hasNoMetricsClass = cardElement.classList.contains('card-no-metrics');
+        const needsPlaceholderMetrics = context.shouldShowPlaceholderMetrics && !context.hasMetrics;
+        
+        if (hasNoMetricsClass || needsPlaceholderMetrics) {
+            cardElement.classList.remove('card-no-metrics');
+            
+            let headerRow = cardElement.querySelector('.card-header-row');
+            const h2 = cardElement.querySelector('h2');
+            
+            // If h2 is a direct child (mobile layout), we need to create headerRow
+            if (!headerRow && h2 && h2.parentNode === cardElement) {
+                const compactMetrics = cardElement.querySelector('.metrics-compact');
+                headerRow = document.createElement('div');
+                headerRow.className = 'card-header-row';
+                h2.parentNode.insertBefore(headerRow, h2);
+                headerRow.appendChild(h2);
+                if (compactMetrics && compactMetrics.parentNode === cardElement) {
+                    headerRow.appendChild(compactMetrics);
+                }
+            } else if (headerRow && h2 && h2.parentNode !== headerRow) {
+                // If headerRow exists but h2 is not in it, move h2 into headerRow
+                headerRow.insertBefore(h2, headerRow.firstChild);
+            }
+            
+            // Add placeholder metrics if they don't exist
+            if (!cardElement.querySelectorAll('.metric').length && headerRow) {
+                headerRow.insertAdjacentHTML('afterend', this.createPlaceholderMetrics());
+            }
+        }
+        
+        // Ensure warning chip exists in header
+        const headerRow = cardElement.querySelector('.card-header-row');
+        if (headerRow && context.statusLabel) {
+            const existingChip = headerRow.querySelector('.card-header-warning-chip');
+            if (!existingChip) {
+                const chipHTML = this.createWarningChip(context.status, context.statusLabel);
+                const titleEl = headerRow.querySelector('h2');
+                if (titleEl) {
+                    titleEl.insertAdjacentHTML('afterend', chipHTML);
+                }
+            }
+        }
+    }
+    
+    // Update card for mobile layout
+    updateCardForMobile(cardElement, context, deviceData) {
+        const headerRow = cardElement.querySelector('.card-header-row');
+        
+        // Remove warning chip from header
+        if (headerRow) {
+            const warningChip = headerRow.querySelector('.card-header-warning-chip');
+            if (warningChip) {
+                warningChip.remove();
+            }
+        }
+        
+        // If card has placeholder metrics (from desktop), convert to mobile compact layout
+        const hasPlaceholderMetrics = cardElement.querySelectorAll('.metric').length === 3 && 
+            cardElement.querySelector('.metric .metric-value')?.textContent?.includes('-');
+        
+        if (hasPlaceholderMetrics && !context.shouldAddNoMetricsClass) {
+            // Remove placeholder metrics
+            const metrics = cardElement.querySelectorAll('.metric');
+            metrics.forEach(m => m.remove());
+            
+            // Add card-no-metrics class
+            cardElement.classList.add('card-no-metrics');
+            
+            // Ensure compact metrics exist with status chip
+            let compactContainer = cardElement.querySelector('.metrics-compact');
+            if (!compactContainer) {
+                const compactMetricsHTML = `
+                    <div class="metrics-compact">
+                        ${this.createStatusChip(context.status, context.statusLabel)}
+                    </div>
+                `;
+                const h2 = cardElement.querySelector('h2');
+                if (h2) {
+                    h2.insertAdjacentHTML('afterend', compactMetricsHTML);
+                }
+            } else {
+                // Ensure status chip is in compact metrics
+                const statusChip = compactContainer.querySelector('.status-chip');
+                if (!statusChip && context.statusLabel) {
+                    compactContainer.insertAdjacentHTML('beforeend', this.createStatusChip(context.status, context.statusLabel));
+                }
+            }
+            
+            // Remove header row structure for mobile (h2 should be direct child)
+            if (headerRow) {
+                const h2 = headerRow.querySelector('h2');
+                const compactMetrics = headerRow.querySelector('.metrics-compact');
+                if (h2) {
+                    headerRow.parentNode.insertBefore(h2, headerRow);
+                    if (compactMetrics) {
+                        h2.insertAdjacentElement('afterend', compactMetrics);
+                    }
+                    headerRow.remove();
+                }
+            }
+        } else if (context.shouldAddNoMetricsClass) {
+            // Card already has card-no-metrics, just ensure compact metrics with status chip exists
+            let compactContainer = cardElement.querySelector('.metrics-compact');
+            if (!compactContainer && context.statusLabel) {
+                const compactMetricsHTML = `
+                    <div class="metrics-compact">
+                        ${this.createStatusChip(context.status, context.statusLabel)}
+                    </div>
+                `;
+                const h2 = cardElement.querySelector('h2');
+                if (h2) {
+                    h2.insertAdjacentHTML('afterend', compactMetricsHTML);
+                }
+            } else if (compactContainer && context.statusLabel) {
+                const statusChip = compactContainer.querySelector('.status-chip');
+                if (!statusChip) {
+                    compactContainer.insertAdjacentHTML('beforeend', this.createStatusChip(context.status, context.statusLabel));
+                }
+            }
+        }
+    }
+    
+    // Update metric values in existing card
+    updateMetricValues(cardElement, deviceData, previousValues) {
+        // Update temperature
+        if (typeof deviceData.temperature !== 'undefined') {
+            const tempMetric = cardElement.querySelector('.temperature');
+            if (tempMetric) {
+                const valueSpan = tempMetric.querySelector('.metric-value');
+                const progressBar = tempMetric.querySelector('.progress');
+                const newTemp = deviceData.temperature.toFixed(1);
+                
+                if (valueSpan) {
+                    const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                    if (currentText !== `${newTemp}°C`) {
+                        if (previousValues.temperature !== null && Math.abs(deviceData.temperature - previousValues.temperature) >= 0.1) {
+                            valueSpan.classList.add('changed');
+                            setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                        }
+                        if (valueSpan.childNodes[0]) {
+                            valueSpan.childNodes[0].textContent = `${newTemp}°C`;
+                        }
+                    }
+                }
+                
+                if (progressBar) {
+                    const newWidth = normalizeTemp(deviceData.temperature);
+                    progressBar.style.width = `${newWidth}%`;
+                }
+            }
+        }
+        
+        // Update humidity
+        if (typeof deviceData.humidity !== 'undefined') {
+            const humidMetric = cardElement.querySelector('.humidity');
+            if (humidMetric) {
+                const valueSpan = humidMetric.querySelector('.metric-value');
+                const progressBar = humidMetric.querySelector('.progress');
+                const newHumid = deviceData.humidity.toFixed(1);
+                
+                if (valueSpan) {
+                    const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                    if (currentText !== `${newHumid}%`) {
+                        if (previousValues.humidity !== null && Math.abs(deviceData.humidity - previousValues.humidity) >= 0.1) {
+                            valueSpan.classList.add('changed');
+                            setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                        }
+                        if (valueSpan.childNodes[0]) {
+                            valueSpan.childNodes[0].textContent = `${newHumid}%`;
+                        }
+                    }
+                }
+                
+                if (progressBar) {
+                    progressBar.style.width = `${Math.max(0, deviceData.humidity)}%`;
+                }
+            }
+        }
+        
+        // Update battery
+        if (typeof deviceData.battery !== 'undefined') {
+            const battMetric = cardElement.querySelector('.battery');
+            if (battMetric) {
+                const valueSpan = battMetric.querySelector('.metric-value');
+                const progressBar = battMetric.querySelector('.progress');
+                const newBatt = Math.round(deviceData.battery);
+                
+                if (valueSpan) {
+                    const currentText = valueSpan.childNodes[0]?.textContent?.trim();
+                    if (currentText !== `${newBatt}%`) {
+                        if (previousValues.battery !== null && Math.abs(deviceData.battery - previousValues.battery) >= 0.1) {
+                            valueSpan.classList.add('changed');
+                            setTimeout(() => valueSpan.classList.remove('changed'), 1000);
+                        }
+                        if (valueSpan.childNodes[0]) {
+                            valueSpan.childNodes[0].textContent = `${newBatt}%`;
+                        }
+                    }
+                }
+                
+                if (progressBar) {
+                    progressBar.style.width = `${Math.max(0, deviceData.battery)}%`;
+                }
+            }
+        }
+        
+        // Update compact metrics
+        const compactContainer = cardElement.querySelector('.metrics-compact');
+        if (compactContainer) {
+            const layoutMode = isDesktopLayoutMode() ? 'desktop' : 'mobile';
+            const context = this.buildRenderContext(deviceData, layoutMode);
+            const excludeStatusChip = context.isDesktop && context.shouldShowPlaceholderMetrics;
+            const compactMetrics = createCompactMetrics(deviceData, excludeStatusChip);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = compactMetrics;
+            const newCompactContainer = tempDiv.firstElementChild;
+            if (newCompactContainer) {
+                compactContainer.replaceWith(newCompactContainer);
+            }
+        }
+    }
+}
+
+// Create global instance
+const cardRenderer = new CardRenderer();
+
+
+
+/* ============================================
+   Source: static/js/drag-drop.js
+   ============================================ */
+
+// Drag and drop functionality
+
+let draggedElement = null;
+let isDragging = false;
+let placeholder = null;
+
+function handleDragStart(e) {
+    draggedElement = e.target.closest('.device-group');
+    if (draggedElement) {
+        draggedElement.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+    }
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    
+    const target = e.target.closest('.device-group');
+    if (target && target !== draggedElement) {
+        const container = document.getElementById('sensors-container');
+        const allGroups = [...container.querySelectorAll('.device-group')];
+        const draggedIndex = allGroups.indexOf(draggedElement);
+        const targetIndex = allGroups.indexOf(target);
+        
+        if (draggedIndex < targetIndex) {
+            target.parentNode.insertBefore(draggedElement, target.nextSibling);
+        } else {
+            target.parentNode.insertBefore(draggedElement, target);
+        }
+    }
+    
+    return false;
+}
+
+// Helper function to save group order
+function saveCurrentGroupOrder() {
+    const container = document.getElementById('sensors-container');
+    if (!container) return;
+    const allGroups = [...container.querySelectorAll('.device-group')];
+    const newOrder = allGroups.map(group => group.getAttribute('data-group'));
+    if (window.saveGroupOrder) {
+        window.saveGroupOrder(newOrder);
+    }
+}
+
+function handleDragEnd(e) {
+    if (draggedElement) {
+        draggedElement.classList.remove('dragging');
+        saveCurrentGroupOrder();
+    }
+    draggedElement = null;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    return false;
+}
+
+// Touch event handlers for mobile
+function handleTouchStart(e) {
+    const dragHandle = e.target.closest('.group-drag-handle');
+    if (!dragHandle) return;
+    
+    draggedElement = e.target.closest('.device-group');
+    if (!draggedElement) return;
+    
+    isDragging = true;
+    
+    // Add visual feedback
+    draggedElement.classList.add('dragging');
+    
+    // Create placeholder
+    placeholder = document.createElement('div');
+    placeholder.className = 'group-placeholder';
+    placeholder.style.height = draggedElement.offsetHeight + 'px';
+    
+    e.preventDefault();
+}
+
+function handleTouchMove(e) {
+    if (!isDragging || !draggedElement) return;
+    
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const currentY = touch.clientY;
+    const currentX = touch.clientX;
+    
+    // Move the element
+    draggedElement.style.position = 'fixed';
+    draggedElement.style.zIndex = '1000';
+    draggedElement.style.left = '10px';
+    draggedElement.style.right = '10px';
+    draggedElement.style.width = 'calc(100% - 20px)';
+    draggedElement.style.top = (currentY - 30) + 'px';
+    draggedElement.style.pointerEvents = 'none';
+    
+    // Insert placeholder if not already in DOM
+    if (!placeholder.parentNode) {
+        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+    }
+    
+    // Find the element we're hovering over
+    const elementBelow = document.elementFromPoint(currentX, currentY);
+    const groupBelow = elementBelow?.closest('.device-group:not(.dragging)');
+    
+    if (groupBelow && groupBelow !== draggedElement) {
+        const container = document.getElementById('sensors-container');
+        const allGroups = [...container.querySelectorAll('.device-group:not(.dragging)')];
+        const belowIndex = allGroups.indexOf(groupBelow);
+        
+        if (belowIndex !== -1) {
+            const rect = groupBelow.getBoundingClientRect();
+            const middle = rect.top + rect.height / 2;
+            
+            if (currentY < middle) {
+                groupBelow.parentNode.insertBefore(placeholder, groupBelow);
+            } else {
+                groupBelow.parentNode.insertBefore(placeholder, groupBelow.nextSibling);
+            }
+        }
+    }
+}
+
+function handleTouchEnd(e) {
+    if (!isDragging || !draggedElement) return;
+    
+    e.preventDefault();
+    
+    // Reset styles
+    draggedElement.style.position = '';
+    draggedElement.style.zIndex = '';
+    draggedElement.style.left = '';
+    draggedElement.style.right = '';
+    draggedElement.style.width = '';
+    draggedElement.style.top = '';
+    draggedElement.style.pointerEvents = '';
+    draggedElement.classList.remove('dragging');
+    
+    // Replace placeholder with dragged element
+    if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(draggedElement, placeholder);
+        placeholder.remove();
+    }
+    
+    // Save the new order
+    saveCurrentGroupOrder();
+    
+    // Reset state
+    isDragging = false;
+    draggedElement = null;
+    placeholder = null;
+}
+
+function setupDragAndDrop(container) {
+    // Event delegation for drag and drop (desktop)
+    container.addEventListener('dragstart', handleDragStart, false);
+    container.addEventListener('dragover', handleDragOver, false);
+    container.addEventListener('drop', handleDrop, false);
+    container.addEventListener('dragend', handleDragEnd, false);
+    
+    // Touch events for mobile drag and drop
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: false });
+}
+
+
+
+/* ============================================
+   Source: static/js/groups.js
+   ============================================ */
+
+// Group management and state
+
+const expandedGroups = new Set();
+let groupOrder = [];
+
+// Load persisted state from localStorage
+function loadPersistedState() {
+    // Load expanded groups
+    const savedExpanded = localStorage.getItem('expandedGroups');
+    if (savedExpanded) {
+        try {
+            const expanded = JSON.parse(savedExpanded);
+            expanded.forEach(group => expandedGroups.add(group));
+        } catch (e) {
+            console.error('Error loading expanded groups:', e);
+        }
+    }
+    
+    // Load group order
+    const savedOrder = localStorage.getItem('groupOrder');
+    if (savedOrder) {
+        try {
+            groupOrder = JSON.parse(savedOrder);
+        } catch (e) {
+            console.error('Error loading group order:', e);
+            groupOrder = [];
+        }
+    }
+}
+
+// Save expanded state to localStorage
+function saveExpandedState() {
+    localStorage.setItem('expandedGroups', JSON.stringify([...expandedGroups]));
+}
+
+// Save group order to localStorage
+function saveGroupOrder(newOrder) {
+    if (newOrder) {
+        groupOrder = newOrder;
+    }
+    localStorage.setItem('groupOrder', JSON.stringify(groupOrder));
+}
+
+function toggleGroup(groupElement) {
+    const groupName = groupElement.getAttribute('data-group');
+    if (!groupName) return;
+    
+    if (expandedGroups.has(groupName)) {
+        expandedGroups.delete(groupName);
+    } else {
+        expandedGroups.add(groupName);
+    }
+    
+    const content = groupElement.querySelector('.group-content');
+    const toggle = groupElement.querySelector('.group-toggle');
+    const isExpanded = expandedGroups.has(groupName);
+    
+    content.style.display = isExpanded ? 'grid' : 'none';
+    toggle.setAttribute('aria-expanded', isExpanded);
+    groupElement.classList.toggle('collapsed', !isExpanded);
+    
+    // Persist the expanded state
+    saveExpandedState();
+}
+
+function isGroupExpanded(groupName) {
+    return expandedGroups.has(groupName);
+}
+
+function getGroupOrder() {
+    return groupOrder;
+}
+
+function setGroupOrder(order) {
+    groupOrder = order;
+    saveGroupOrder();
+}
+
+// Make saveGroupOrder available globally for drag-drop.js
+window.saveGroupOrder = saveGroupOrder;
+
+
+
+/* ============================================
+   Source: static/js/app.js
+   ============================================ */
+
+// Main application orchestration
+
+// Register Service Worker for PWA functionality
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+            .then((registration) => {
+                console.log('ServiceWorker registered:', registration.scope);
+            })
+            .catch((error) => {
+                console.log('ServiceWorker registration failed:', error);
+            });
+    });
+}
+
+// Format timestamp
+function formatLastUpdate() {
+    const now = new Date();
+    return now.toLocaleTimeString();
+}
+
+// Update timestamp display
+function updateTimestamp() {
+    const timestampEl = document.querySelector('.last-update .timestamp');
+    if (timestampEl) {
+        timestampEl.textContent = `Last updated: ${formatLastUpdate()}`;
+    }
+}
+
+// Theme handling
+function toggleTheme() {
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+}
+
+// Layout change callback - update cards when layout changes
+window.onLayoutChange = function() {
+    updateCardsForLayout();
+};
+
+function updateCardsForLayout() {
+    const layout = document.documentElement.getAttribute('data-layout') || 'auto';
+    const allCards = document.querySelectorAll('.card');
+    
+    allCards.forEach(card => {
+        const roomName = card.getAttribute('data-room');
+        if (!roomName) return;
+        
+        // Try to find device data from existing card structure
+        const isStale = card.classList.contains('card-stale');
+        const isWeatherStation = card.classList.contains('weather-station');
+        
+        if (!isStale || isWeatherStation) return;
+        
+        // Determine status from title attribute
+        const titleAttr = card.getAttribute('title');
+        const status = titleAttr === 'Missing' ? 'never_seen' : 'stale';
+        
+        // Reconstruct minimal device data for update
+        const deviceData = {
+            status: status,
+            isWeatherStation: isWeatherStation,
+            displayName: card.querySelector('h2')?.textContent || roomName
+        };
+        
+        // Use CardRenderer to update the card
+        cardRenderer.updateCardElement(card, deviceData, {}, layout);
+    });
+}
+
+// Progress bar animation
+function startProgressBar() {
+    const progressBar = document.getElementById('refreshProgress');
+    if (!progressBar) return;
+    progressBar.style.transition = 'none';
+    progressBar.style.transform = 'scaleX(1)';
+    progressBar.offsetHeight; // Force reflow
+    progressBar.style.transition = `transform ${REFRESH_INTERVAL/1000}s linear`;
+    progressBar.style.transform = 'scaleX(0)';
+}
+
 async function fetchMetrics() {
     try {
         const controller = new AbortController();
@@ -761,86 +1185,16 @@ async function fetchMetrics() {
         }
         
         const text = await response.text();
-        const rooms = {};
-        const statusByDevice = {};
-        const deviceGroups = DEVICE_GROUPS;
-        const weatherData = {}; // Store OpenMeteo data
-
+        
+        // Parse metrics using metrics-parser module
+        const rooms = parseMetrics(text);
+        
         // Update connection status
-        lastSuccessfulFetch = Date.now();
-        updateConnectivityStatus('connected');
-
+        markFetchSuccess();
+        
         // Update timestamp
         updateTimestamp();
-
-        // Parse metrics text into room data and weather data
-        text.split('\n').forEach(line => {
-            if (!line || line.startsWith('#')) return; // Skip empty lines and comments
-            
-            // Parse OpenMeteo metrics (no labels, just metric name and value)
-            const weatherMatch = line.match(/openmeteo_(\w+)\s+([-\d.]+)/);
-            if (weatherMatch) {
-                const [, metric, value] = weatherMatch;
-                weatherData[metric] = parseFloat(value);
-                return;
-            }
-
-            // Parse device status metrics
-            const statusMatch = line.match(/govee_device_status\{name="([^"]+)",status="([^"]+)"\}\s+([-\d.]+)/);
-            if (statusMatch) {
-                const [, name, status, value] = statusMatch;
-                const numericValue = parseFloat(value);
-                if (numericValue >= 0.5) {
-                    statusByDevice[name] = status;
-                }
-                return;
-            }
-            
-            // Parse Govee sensor metrics
-            const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([-\d.]+)/);
-            if (!match) return;
-            
-            const [, metric, name, value] = match;
-            if (!rooms[name]) {
-                rooms[name] = {
-                    group: deviceGroups[name] || 'Ungrouped',
-                    displayName: getDisplayName(name)
-                };
-            }
-            rooms[name][metric] = parseFloat(value);
-        });
-
-        // Ensure all devices with status are represented in the UI
-        Object.entries(statusByDevice).forEach(([name, status]) => {
-            if (!rooms[name]) {
-                rooms[name] = {
-                    group: deviceGroups[name] || 'Ungrouped',
-                    displayName: getDisplayName(name)
-                };
-            }
-            rooms[name].status = status;
-        });
-
-        // Apply status to devices that already had metrics
-        Object.entries(rooms).forEach(([name, data]) => {
-            if (statusByDevice[name]) {
-                data.status = statusByDevice[name];
-            }
-        });
         
-        // Add OpenMeteo as a special "device" if data exists
-        if (weatherData.temperature !== undefined || weatherData.humidity !== undefined) {
-            const name = 'Outdoor';
-            rooms[name] = {
-                group: 'Outdoor Weather',
-                displayName: getDisplayName(name),
-                temperature: weatherData.temperature,
-                humidity: weatherData.humidity,
-                // No battery for weather API data
-                isWeatherStation: true
-            };
-        }
-
         // Store previous values for comparison
         const previousValues = {};
         document.querySelectorAll('.card').forEach(card => {
@@ -857,7 +1211,7 @@ async function fetchMetrics() {
                 battery: battEl ? parseFloat(battEl.textContent) : null
             };
         });
-
+        
         // Group rooms by their group property
         const groupedRooms = {};
         Object.entries(rooms).forEach(([room, data]) => {
@@ -867,7 +1221,7 @@ async function fetchMetrics() {
             }
             groupedRooms[groupName].push({ name: room, displayName: data.displayName || room, data });
         });
-
+        
         // Sort rooms alphabetically within each group
         Object.keys(groupedRooms).forEach(groupName => {
             groupedRooms[groupName].sort((a, b) => {
@@ -876,52 +1230,42 @@ async function fetchMetrics() {
                 return aName.localeCompare(bName);
             });
         });
-
+        
         // Get sorted group names
         let sortedGroupNames = Object.keys(groupedRooms).sort();
         
         // Apply saved order if it exists
-        if (groupOrder.length > 0) {
+        const savedOrder = getGroupOrder();
+        if (savedOrder.length > 0) {
             // Filter out groups that no longer exist and add new groups at the end
-            const existingGroups = sortedGroupNames.filter(g => groupOrder.includes(g));
-            const newGroups = sortedGroupNames.filter(g => !groupOrder.includes(g));
+            const existingGroups = sortedGroupNames.filter(g => savedOrder.includes(g));
+            const newGroups = sortedGroupNames.filter(g => !savedOrder.includes(g));
             
             sortedGroupNames = [
-                ...groupOrder.filter(g => existingGroups.includes(g)),
+                ...savedOrder.filter(g => existingGroups.includes(g)),
                 ...newGroups
             ];
             
             // Update groupOrder to include new groups
             if (newGroups.length > 0) {
-                groupOrder = sortedGroupNames;
-                saveGroupOrder();
+                setGroupOrder(sortedGroupNames);
             }
         } else {
             // First time - save the alphabetical order
-            groupOrder = sortedGroupNames;
-            saveGroupOrder();
+            setGroupOrder(sortedGroupNames);
         }
-
+        
         // Initialize all groups as expanded on first load if no saved state
         if (expandedGroups.size === 0 && !localStorage.getItem('expandedGroups')) {
             sortedGroupNames.forEach(group => expandedGroups.add(group));
             saveExpandedState();
         }
-
-        // Escape HTML to prevent XSS
-        const escapeHtml = (str) => {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        };
-
-        // Build the HTML for all groups
-        const container = document.getElementById('sensors-container');
-        const containerHTML = sortedGroupNames.map(groupName => {
-            const isExpanded = expandedGroups.has(groupName);
-            const roomsInGroup = groupedRooms[groupName];
-            
-            // Calculate group averages
+        
+        // Get current layout mode
+        const currentLayout = document.documentElement.getAttribute('data-layout') || 'auto';
+        
+        // Helper function to calculate group averages
+        function calculateGroupAverages(roomsInGroup) {
             let tempSum = 0, tempCount = 0;
             let humidSum = 0, humidCount = 0;
             
@@ -936,99 +1280,36 @@ async function fetchMetrics() {
                 }
             });
             
-            const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
-            const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
-            
-            // Check if any device in group is stale/missing
-            const hasStaleDevice = roomsInGroup.some(({ data }) => {
+            return {
+                avgTemp: tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null,
+                avgHumid: humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null
+            };
+        }
+        
+        // Helper function to check if group has stale devices
+        function hasStaleDevice(roomsInGroup) {
+            return roomsInGroup.some(({ data }) => {
                 const status = data.status || 'active';
                 return (status === 'stale' || status === 'never_seen') && !data.isWeatherStation;
             });
+        }
+        
+        // Build the HTML for all groups
+        const container = document.getElementById('sensors-container');
+        const containerHTML = sortedGroupNames.map(groupName => {
+            const isExpanded = isGroupExpanded(groupName);
+            const roomsInGroup = groupedRooms[groupName];
+            
+            // Calculate group averages
+            const { avgTemp, avgHumid } = calculateGroupAverages(roomsInGroup);
+            
+            // Check if any device in group is stale/missing
+            const hasStale = hasStaleDevice(roomsInGroup);
             
             const cardsHTML = roomsInGroup.map(({ name, displayName, data }) => {
                 const prev = previousValues[name] || {};
-                const title = escapeHtml(displayName || name);
-                
-                // Check if this is a weather station
-                const isWeatherStation = data.isWeatherStation || false;
-                const status = data.status || 'active';
-                const isStale = status === 'stale' || status === 'never_seen';
-                const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
-                const isDesktopLayout = isDesktopLayoutMode();
-                // In desktop, if stale and no metrics, we'll show placeholder metrics, so don't add card-no-metrics class
-                const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktopLayout;
-                const baseClass = isWeatherStation ? 'card weather-station' : 'card';
-                // Don't add card-no-metrics if we're showing placeholder metrics in desktop
-                const shouldAddNoMetricsClass = !hasMetrics && !shouldShowPlaceholderMetrics;
-                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (shouldAddNoMetricsClass ? ' card-no-metrics' : '');
-
-                // Create compact metrics for mobile (includes status icon if needed)
-                // In desktop, exclude status chip since we show it in the header
-                const compactMetrics = createCompactMetrics(data, isDesktopLayout && shouldShowPlaceholderMetrics);
-                
-                // Optional weather station footer
-                const weatherFooter = isWeatherStation ? `
-                    <div class="card-footer">
-                        <small>Source: Open-Meteo API</small>
-                    </div>
-                ` : '';
-                
-                const metricsBlock = hasMetrics ? `
-                        ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
-                        ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
-                        ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
-                ` : '';
-
-                // Tooltip for missing/stale devices
-                const statusTooltip = isStale && !isWeatherStation 
-                    ? (status === 'never_seen' ? 'Missing' : 'Stale')
-                    : '';
-
-                // Warning chip for desktop layout (top right, aligned with title)
-                // Only show in desktop when we have placeholder metrics or when device has metrics but is stale
-                const statusLabel = isStale && !isWeatherStation 
-                    ? (status === 'never_seen' ? 'Missing' : 'Stale')
-                    : '';
-                const warningChip = statusLabel && isDesktopLayout ? `
-                    <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                        </svg>
-                    </span>
-                ` : '';
-
-                // For missing/stale devices without metrics, use simpler structure (no card-header-row) for mobile/auto
-                // In desktop, we'll show placeholder metrics instead, so skip this early return
-                if (!hasMetrics && isStale && !isWeatherStation && !isDesktopLayout) {
-                    return `
-                        <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
-                            <h2>${title}</h2>
-                            ${compactMetrics}
-                        </div>
-                    `;
-                }
-
-                // For desktop: show all metrics with "-" values for missing/stale devices without metrics
-                // Use shouldShowPlaceholderMetrics to ensure consistency
-                const finalMetricsBlock = shouldShowPlaceholderMetrics 
-                    ? `
-                        ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
-                        ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
-                        ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
-                    `
-                    : metricsBlock;
-
-                return `
-                    <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
-                        <div class="card-header-row">
-                            <h2>${title}</h2>
-                            ${warningChip}
-                            ${compactMetrics}
-                        </div>
-                        ${finalMetricsBlock}
-                        ${weatherFooter}
-                    </div>
-                `;
+                // Use CardRenderer to render card
+                return cardRenderer.renderCardHTML(name, { ...data, displayName }, prev, currentLayout);
             }).join('');
             
             return `
@@ -1048,7 +1329,7 @@ async function fetchMetrics() {
                         <div class="group-stats">
                             ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
                             ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}
-                            ${hasStaleDevice ? `<span class="group-stat group-stat-warning" title="Missing or stale devices"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>` : ''}
+                            ${hasStale ? `<span class="group-stat group-stat-warning" title="Missing or stale devices"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>` : ''}
                         </div>
                     </button>
                     <div class="group-content" style="display: ${isExpanded ? 'grid' : 'none'}">
@@ -1057,7 +1338,7 @@ async function fetchMetrics() {
                 </div>
             `;
         }).join('');
-
+        
         // Update DOM efficiently - only update if structure changed
         const existingGroups = [...container.querySelectorAll('.device-group')];
         const existingGroupNames = existingGroups.map(g => g.getAttribute('data-group'));
@@ -1075,28 +1356,10 @@ async function fetchMetrics() {
                 const roomsInGroup = groupedRooms[groupName];
                 
                 // Calculate group averages
-                let tempSum = 0, tempCount = 0;
-                let humidSum = 0, humidCount = 0;
-                
-                roomsInGroup.forEach(({ data }) => {
-                    if (typeof data.temperature !== 'undefined') {
-                        tempSum += data.temperature;
-                        tempCount++;
-                    }
-                    if (typeof data.humidity !== 'undefined') {
-                        humidSum += data.humidity;
-                        humidCount++;
-                    }
-                });
-                
-                const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
-                const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
+                const { avgTemp, avgHumid } = calculateGroupAverages(roomsInGroup);
                 
                 // Check if any device in group is stale/missing
-                const hasStaleDevice = roomsInGroup.some(({ data }) => {
-                    const status = data.status || 'active';
-                    return (status === 'stale' || status === 'never_seen') && !data.isWeatherStation;
-                });
+                const hasStale = hasStaleDevice(roomsInGroup);
                 
                 // Update group stats
                 const statsContainer = groupElement.querySelector('.group-stats');
@@ -1120,13 +1383,13 @@ async function fetchMetrics() {
                     }
                     
                     // Update warning chip
-                    if (hasStaleDevice && !warningStat) {
+                    if (hasStale && !warningStat) {
                         const warningChip = document.createElement('span');
                         warningChip.className = 'group-stat group-stat-warning';
                         warningChip.title = 'Missing or stale devices';
                         warningChip.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
                         statsContainer.appendChild(warningChip);
-                    } else if (!hasStaleDevice && warningStat) {
+                    } else if (!hasStale && warningStat) {
                         warningStat.remove();
                     }
                 }
@@ -1140,203 +1403,14 @@ async function fetchMetrics() {
                     }
                 }
                 
-                // Update cards within the group
+                // Update cards within the group using CardRenderer
                 roomsInGroup.forEach(({ name, displayName, data }) => {
                     const card = groupElement.querySelector(`.card[data-room="${CSS.escape(name)}"]`);
                     if (!card) return;
                     
                     const prev = previousValues[name] || {};
-
-                    // Ensure the card title reflects any display name
-                    const titleEl = card.querySelector('h2');
-                    const desiredTitle = displayName || name;
-                    const status = data.status || 'active';
-                    const isStale = status === 'stale' || status === 'never_seen';
-                    const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
-                    const isDesktopLayout = isDesktopLayoutMode();
-                    const shouldShowPlaceholderMetrics = isStale && !(data.isWeatherStation) && !hasMetrics && isDesktopLayout;
-                    
-                    card.classList.toggle('card-stale', isStale && !(data.isWeatherStation));
-                    // Don't add card-no-metrics if we should show placeholder metrics in desktop
-                    card.classList.toggle('card-no-metrics', !hasMetrics && !shouldShowPlaceholderMetrics);
-
-                    // Update tooltip for missing/stale devices
-                    const statusTooltip = isStale && !(data.isWeatherStation)
-                        ? (status === 'never_seen' ? 'Missing' : 'Stale')
-                        : '';
-                    if (statusTooltip) {
-                        card.setAttribute('title', statusTooltip);
-                    } else {
-                        card.removeAttribute('title');
-                    }
-
-                    if (titleEl && titleEl.textContent !== desiredTitle) {
-                        titleEl.textContent = desiredTitle;
-                    }
-
-                    // Update compact metrics (mobile view)
-                    const compactContainer = card.querySelector('.metrics-compact');
-                    if (compactContainer) {
-                        const excludeStatusChip = isDesktopLayout && shouldShowPlaceholderMetrics;
-                        const compactMetrics = createCompactMetrics(data, excludeStatusChip);
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = compactMetrics;
-                        const newCompactContainer = tempDiv.firstElementChild;
-                        if (newCompactContainer) {
-                            compactContainer.replaceWith(newCompactContainer);
-                        }
-                    }
-                    
-                    // For desktop: if device is stale and has no metrics, show placeholder metrics
-                    if (shouldShowPlaceholderMetrics) {
-                        // Check if card has wrong structure (card-no-metrics without proper header/metrics)
-                        const headerRow = card.querySelector('.card-header-row');
-                        const hasPlaceholderMetrics = card.querySelectorAll('.metric').length === 3 && 
-                            card.querySelector('.metric .metric-value')?.textContent?.includes('-');
-                        
-                        if (!headerRow || !hasPlaceholderMetrics) {
-                            // Card has wrong structure, need to fix it
-                            // Remove compact metrics that might be in wrong place
-                            const wrongCompactMetrics = card.querySelector('h2 + .metrics-compact');
-                            if (wrongCompactMetrics) {
-                                wrongCompactMetrics.remove();
-                            }
-                            
-                            // Ensure we have a header row
-                            let actualHeaderRow = headerRow;
-                            if (!actualHeaderRow) {
-                                const h2 = card.querySelector('h2');
-                                if (h2) {
-                                    const compactMetrics = card.querySelector('.metrics-compact');
-                                    actualHeaderRow = document.createElement('div');
-                                    actualHeaderRow.className = 'card-header-row';
-                                    h2.parentNode.insertBefore(actualHeaderRow, h2.nextSibling);
-                                    actualHeaderRow.appendChild(h2);
-                                    if (compactMetrics) {
-                                        actualHeaderRow.appendChild(compactMetrics);
-                                    }
-                                }
-                            }
-                            
-                            if (actualHeaderRow) {
-                                // Remove any existing metrics
-                                const existingMetrics = card.querySelectorAll('.metric');
-                                existingMetrics.forEach(m => m.remove());
-                                
-                                // Add placeholder metrics
-                                const placeholderMetrics = `
-                                    ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
-                                    ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
-                                    ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
-                                `;
-                                actualHeaderRow.insertAdjacentHTML('afterend', placeholderMetrics);
-                                
-                                // Add warning chip to header if not present
-                                const warningChip = actualHeaderRow.querySelector('.card-header-warning-chip');
-                                if (!warningChip) {
-                                    const statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
-                                    const chipHTML = `
-                                        <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
-                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                            </svg>
-                                        </span>
-                                    `;
-                                    const titleEl = actualHeaderRow.querySelector('h2');
-                                    if (titleEl) {
-                                        titleEl.insertAdjacentHTML('afterend', chipHTML);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Update temperature
-                    if (typeof data.temperature !== 'undefined') {
-                        const tempMetric = card.querySelector('.temperature');
-                        if (tempMetric) {
-                            const valueSpan = tempMetric.querySelector('.metric-value');
-                            const progressBar = tempMetric.querySelector('.progress');
-                            const newTemp = data.temperature.toFixed(1);
-                            
-                            if (valueSpan) {
-                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
-                                if (currentText !== `${newTemp}°C`) {
-                                    // Check if value changed for animation
-                                    if (prev.temperature !== null && Math.abs(data.temperature - prev.temperature) >= 0.1) {
-                                        valueSpan.classList.add('changed');
-                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
-                                    }
-                                    
-                                    // Update the text node (first child)
-                                    if (valueSpan.childNodes[0]) {
-                                        valueSpan.childNodes[0].textContent = `${newTemp}°C`;
-                                    }
-                                }
-                            }
-                            
-                            if (progressBar) {
-                                const newWidth = normalizeTemp(data.temperature);
-                                progressBar.style.width = `${newWidth}%`;
-                            }
-                        }
-                    }
-                    
-                    // Update humidity
-                    if (typeof data.humidity !== 'undefined') {
-                        const humidMetric = card.querySelector('.humidity');
-                        if (humidMetric) {
-                            const valueSpan = humidMetric.querySelector('.metric-value');
-                            const progressBar = humidMetric.querySelector('.progress');
-                            const newHumid = data.humidity.toFixed(1);
-                            
-                            if (valueSpan) {
-                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
-                                if (currentText !== `${newHumid}%`) {
-                                    if (prev.humidity !== null && Math.abs(data.humidity - prev.humidity) >= 0.1) {
-                                        valueSpan.classList.add('changed');
-                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
-                                    }
-                                    
-                                    if (valueSpan.childNodes[0]) {
-                                        valueSpan.childNodes[0].textContent = `${newHumid}%`;
-                                    }
-                                }
-                            }
-                            
-                            if (progressBar) {
-                                progressBar.style.width = `${Math.max(0, data.humidity)}%`;
-                            }
-                        }
-                    }
-                    
-                    // Update battery
-                    if (typeof data.battery !== 'undefined') {
-                        const battMetric = card.querySelector('.battery');
-                        if (battMetric) {
-                            const valueSpan = battMetric.querySelector('.metric-value');
-                            const progressBar = battMetric.querySelector('.progress');
-                            const newBatt = Math.round(data.battery);
-                            
-                            if (valueSpan) {
-                                const currentText = valueSpan.childNodes[0]?.textContent?.trim();
-                                if (currentText !== `${newBatt}%`) {
-                                    if (prev.battery !== null && Math.abs(data.battery - prev.battery) >= 0.1) {
-                                        valueSpan.classList.add('changed');
-                                        setTimeout(() => valueSpan.classList.remove('changed'), 1000);
-                                    }
-                                    
-                                    if (valueSpan.childNodes[0]) {
-                                        valueSpan.childNodes[0].textContent = `${newBatt}%`;
-                                    }
-                                }
-                            }
-                            
-                            if (progressBar) {
-                                progressBar.style.width = `${Math.max(0, data.battery)}%`;
-                            }
-                        }
-                    }
+                    // Use CardRenderer to update the card
+                    cardRenderer.updateCardElement(card, { ...data, displayName }, prev, currentLayout);
                 });
             });
         }
@@ -1378,9 +1452,13 @@ function resetRefreshInterval() {
 
 async function manualRefresh() {
     const refreshButton = document.querySelector('.refresh-button');
-    refreshButton.classList.add('spinning');
+    if (refreshButton) {
+        refreshButton.classList.add('spinning');
+    }
     await fetchMetrics();
-    refreshButton.classList.remove('spinning');
+    if (refreshButton) {
+        refreshButton.classList.remove('spinning');
+    }
     
     // Reset the interval timer so next auto-refresh is in full 30 seconds
     resetRefreshInterval();
@@ -1401,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial timestamp
     updateTimestamp();
-
+    
     // Event delegation for group header clicks
     const container = document.getElementById('sensors-container');
     container.addEventListener('click', (e) => {
@@ -1419,18 +1497,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Event delegation for drag and drop (desktop)
-    container.addEventListener('dragstart', handleDragStart, false);
-    container.addEventListener('dragover', handleDragOver, false);
-    container.addEventListener('drop', handleDrop, false);
-    container.addEventListener('dragend', handleDragEnd, false);
+    // Setup drag and drop
+    setupDragAndDrop(container);
     
-    // Touch events for mobile drag and drop
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: false });
-
     // Initial fetch and periodic updates
     fetchMetrics();
     resetRefreshInterval();
-}); 
+});
+
+
+
