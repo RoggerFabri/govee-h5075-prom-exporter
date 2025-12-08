@@ -26,8 +26,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # Copy the application source code and static files
 COPY . .
 
-# Build CSS before building Go application
-RUN node build-css.js
+# Build CSS and JavaScript before building Go application
+RUN node build-css.js && node build-js.js
 
 # Build the Go application with additional security flags
 # Using verbose output to see what's being rebuilt
