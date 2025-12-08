@@ -36,6 +36,14 @@ devices = {
     "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5, "group": "Outdoor"}  # Boundary: exactly 5% battery
 }
 
+# Device status samples for UI testing
+# Only one status should be 1 per device in real exporter; here we emit one line per device with value 1
+device_status = {
+    "Living Room": "active",
+    "Garage": "stale",
+    "Guest Room": "never_seen"
+}
+
 # OpenMeteo mock data (simulates outdoor weather)
 # Set OPENMETEO_ENABLED=false to disable
 openmeteo_enabled = os.getenv('OPENMETEO_ENABLED', 'true').lower() in ['true', '1', 'yes']
@@ -126,6 +134,15 @@ def metrics():
                 f'govee_h5075_humidity{{name="{name}"}} {data["humidity"]:.1f}',
                 f'govee_h5075_battery{{name="{name}"}} {data["battery"]:.0f}'
             ])
+
+        # Device status metrics (active, stale, never_seen)
+        lines.extend([
+            '',
+            '# HELP govee_device_status Status of configured Govee devices (active, stale, never_seen)',
+            '# TYPE govee_device_status gauge',
+        ])
+        for name, status in device_status.items():
+            lines.append(f'govee_device_status{{name="{name}",status="{status}"}} 1')
         
         # OpenMeteo metrics (only if enabled)
         if openmeteo_enabled:
