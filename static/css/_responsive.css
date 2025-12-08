@@ -28,14 +28,14 @@
         .card-header-warning-chip {
             display: flex !important;
             align-items: center;
-            gap: 4px;
-            font-size: 0.875rem;
+            gap: 3px;
+            font-size: var(--font-size-compact-metric-mobile);
             line-height: 1.2;
-            opacity: 0.85;
+            opacity: 0.75;
             font-weight: 500;
-            padding: 4px 8px;
+            padding: 4px 6px;
             background-color: rgba(var(--border-color-rgb), 0.15);
-            border: 1px solid var(--warning-color);
+            border: none;
             border-radius: 8px;
             white-space: nowrap;
             flex-shrink: 0;
@@ -43,6 +43,11 @@
             font-feature-settings: 'tnum';
             color: var(--warning-color);
             margin-left: auto;
+            /* Ensure same height as compact-metric: line-height * font-size + padding */
+            /* With box-sizing: border-box, height includes padding */
+            /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) */
+            /* Note: compact-metric has no border, so no border width in calculation */
+            height: calc(1.2 * var(--font-size-compact-metric-mobile) + 8px);
         }
 
         .card-header-warning-chip svg {
@@ -51,6 +56,16 @@
             fill: var(--warning-color);
             opacity: 1;
             flex-shrink: 0;
+        }
+
+        /* Ensure card-header-warning-chip matches compact-metric size when it has both classes */
+        .card-header-warning-chip.compact-metric {
+            gap: 3px !important;
+            font-size: var(--font-size-compact-metric-mobile) !important;
+            padding: 4px 6px !important;
+            opacity: 0.75 !important;
+            border: none !important;
+            height: calc(1.2 * var(--font-size-compact-metric-mobile) + 8px) !important;
         }
 
         .card .metrics-compact {
@@ -466,21 +481,25 @@
     [data-layout="desktop"] .card-header-warning-chip {
         display: flex !important;
         align-items: center;
-        gap: 4px;
-        font-size: 0.875rem;
-        line-height: 1.2;
-        opacity: 0.85;
-        font-weight: 500;
-        padding: 4px 8px;
-        background-color: rgba(var(--border-color-rgb), 0.15);
-        border: 1px solid var(--warning-color);
-        border-radius: 8px;
-        white-space: nowrap;
-        flex-shrink: 0;
-        font-variant-numeric: tabular-nums;
-        font-feature-settings: 'tnum';
-        color: var(--warning-color);
-        margin-left: auto;
+        gap: 3px !important;
+        font-size: var(--font-size-compact-metric-mobile) !important;
+        line-height: 1.2 !important;
+        opacity: 0.75 !important;
+        font-weight: 500 !important;
+        padding: 4px 6px !important;
+        background-color: rgba(var(--border-color-rgb), 0.15) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-variant-numeric: tabular-nums !important;
+        font-feature-settings: 'tnum' !important;
+        color: var(--warning-color) !important;
+        margin-left: auto !important;
+        /* Ensure same height as compact-metric: line-height * font-size + padding */
+        /* With box-sizing: border-box, height includes padding */
+        /* Text line-height (1.2 * font-size) + padding (4px top + 4px bottom = 8px) */
+        height: calc(1.2 * var(--font-size-compact-metric-mobile) + 8px) !important;
     }
 
     [data-layout="desktop"] .card-header-warning-chip svg {
@@ -489,6 +508,16 @@
         fill: var(--warning-color);
         opacity: 1;
         flex-shrink: 0;
+    }
+
+    /* Ensure card-header-warning-chip matches compact-metric size when it has both classes */
+    [data-layout="desktop"] .card-header-warning-chip.compact-metric {
+        gap: 3px !important;
+        font-size: var(--font-size-compact-metric-mobile) !important;
+        padding: 4px 6px !important;
+        opacity: 0.75 !important;
+        border: none !important;
+        height: calc(1.2 * var(--font-size-compact-metric-mobile) + 8px) !important;
     }
 
     [data-layout="desktop"] .card.card-no-metrics h2 {
