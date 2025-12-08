@@ -9,8 +9,124 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 )
+
+// resetState clears shared maps and metrics between tests.
+func resetState() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	knownGovees = make(map[string]KnownGovee)
+	lastUpdateTime = make(map[string]time.Time)
+	deviceFirstSeen = make(map[string]time.Time)
+	deviceLastLoggedVals = make(map[string]lastLoggedValues)
+	deviceStatusGauge.Reset()
+}
+
+func getStatusValue(t *testing.T, name, status string) float64 {
+	t.Helper()
+	metric, err := deviceStatusGauge.GetMetricWithLabelValues(name, status)
+	if err != nil {
+		t.Fatalf("get metric for %s/%s: %v", name, status, err)
+	}
+	return testutil.ToFloat64(metric)
+}
+
+func TestUpdateAllDeviceStatuses_MixedStates(t *testing.T) {
+	resetState()
+	t.Cleanup(resetState)
+
+	now := time.Now()
+	staleThreshold := 5 * time.Minute
+
+	mutex.Lock()
+	knownGovees["AA:BB:CC"] = KnownGovee{Name: "ActiveRoom"}
+	knownGovees["DD:EE:FF"] = KnownGovee{Name: "StaleRoom"}
+	knownGovees["11:22:33"] = KnownGovee{Name: "NeverSeenRoom"}
+
+	lastUpdateTime["ActiveRoom"] = now.Add(-1 * time.Minute) // within threshold
+	lastUpdateTime["StaleRoom"] = now.Add(-10 * time.Minute) // beyond threshold
+	mutex.Unlock()
+
+	updateAllDeviceStatuses(staleThreshold)
+
+	if got := getStatusValue(t, "ActiveRoom", "active"); got != 1 {
+		t.Fatalf("ActiveRoom active status = %v, want 1", got)
+	}
+	if got := getStatusValue(t, "ActiveRoom", "stale"); got != 0 {
+		t.Fatalf("ActiveRoom stale status = %v, want 0", got)
+	}
+	if got := getStatusValue(t, "ActiveRoom", "never_seen"); got != 0 {
+		t.Fatalf("ActiveRoom never_seen status = %v, want 0", got)
+	}
+
+	if got := getStatusValue(t, "StaleRoom", "stale"); got != 1 {
+		t.Fatalf("StaleRoom stale status = %v, want 1", got)
+	}
+	if got := getStatusValue(t, "StaleRoom", "active"); got != 0 {
+		t.Fatalf("StaleRoom active status = %v, want 0", got)
+	}
+	if got := getStatusValue(t, "StaleRoom", "never_seen"); got != 0 {
+		t.Fatalf("StaleRoom never_seen status = %v, want 0", got)
+	}
+
+	if got := getStatusValue(t, "NeverSeenRoom", "never_seen"); got != 1 {
+		t.Fatalf("NeverSeenRoom never_seen status = %v, want 1", got)
+	}
+	if got := getStatusValue(t, "NeverSeenRoom", "active"); got != 0 {
+		t.Fatalf("NeverSeenRoom active status = %v, want 0", got)
+	}
+	if got := getStatusValue(t, "NeverSeenRoom", "stale"); got != 0 {
+		t.Fatalf("NeverSeenRoom stale status = %v, want 0", got)
+	}
+}
+
+func TestUpdateAllDeviceStatuses_ConfigRemovalCleansStatus(t *testing.T) {
+	resetState()
+	t.Cleanup(resetState)
+
+	now := time.Now()
+	staleThreshold := 5 * time.Minute
+
+	// Start with one device
+	mutex.Lock()
+	knownGovees["AA:BB:CC"] = KnownGovee{Name: "Office"}
+	lastUpdateTime["Office"] = now
+	mutex.Unlock()
+	updateAllDeviceStatuses(staleThreshold)
+
+	if got := getStatusValue(t, "Office", "active"); got != 1 {
+		t.Fatalf("Office active status = %v, want 1", got)
+	}
+
+	// Reload config without Office to ensure cleanup deletes status metrics
+	newConfig := &Config{
+		Devices: []Device{
+			{MAC: "DD:EE:FF", Name: "Kitchen"},
+		},
+	}
+	loadKnownGovees(newConfig)
+
+	// Office status metrics should be removed (no samples with name="Office")
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	for _, mf := range metrics {
+		if mf.GetName() != "govee_device_status" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			for _, lp := range m.GetLabel() {
+				if lp.GetName() == "name" && lp.GetValue() == "Office" {
+					t.Fatalf("expected Office metrics to be deleted after config reload")
+				}
+			}
+		}
+	}
+}
 
 func TestLoadKnownGovees(t *testing.T) {
 	// Create a test config with devices

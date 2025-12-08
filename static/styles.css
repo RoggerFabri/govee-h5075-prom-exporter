@@ -7,6 +7,7 @@
     --secondary-color: #8b5cf6;
     --success-color: #4caf50;
     --warning-color: #ff9800;
+    --warning-color-rgb: 255, 152, 0;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     --card-bg-rgb: 255, 255, 255;
     --border-color-rgb: 228, 231, 236;
@@ -389,6 +390,17 @@ body {
     flex-shrink: 0;
 }
 
+.group-stat-warning {
+    background: rgba(var(--warning-color-rgb), 0.12) !important;
+    border-color: rgba(var(--warning-color-rgb), 0.3) !important;
+    color: var(--warning-color) !important;
+}
+
+.group-stat-warning svg {
+    fill: var(--warning-color) !important;
+    opacity: 1 !important;
+}
+
 .group-count {
     opacity: 0.6;
     font-weight: 400;
@@ -430,7 +442,79 @@ body {
     -webkit-backdrop-filter: blur(10px);
 }
 
-/* Hide compact view on desktop */
+.card.card-stale {
+    opacity: 0.65;
+    filter: grayscale(0.15);
+}
+
+.card.card-no-metrics {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.card.card-no-metrics h2 {
+    margin-bottom: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+}
+
+.card.card-no-metrics .metrics-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.status-badge.status-stale,
+.status-badge.status-never_seen {
+    color: var(--warning-color);
+}
+
+.status-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: -8px 0 8px 0;
+}
+
+.status-chip {
+    /* Inherits from compact-metric, just override specific properties */
+}
+
+.status-chip.status-stale,
+.status-chip.status-never_seen {
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
+.metrics-compact .status-chip {
+    padding: 4px 6px;
+    gap: 4px;
+}
+
+.status-chip.status-stale svg,
+.status-chip.status-never_seen svg {
+    fill: var(--warning-color);
+    opacity: 1;
+}
+
+/* Hide compact view on desktop (except for cards with no metrics) */
 .card .metrics-compact {
     display: none;
 }
@@ -449,6 +533,19 @@ body {
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--text-color);
+}
+
+.card .card-header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.card .card-header-row h2 {
+    margin-bottom: 0;
 }
 
 .metric {
@@ -706,6 +803,12 @@ body {
         fill: #FF5722;
         opacity: 1;
     }
+    
+    .metrics-compact .compact-metric.status-chip.status-stale svg,
+    .metrics-compact .compact-metric.status-chip.status-never_seen svg {
+        fill: var(--warning-color);
+        opacity: 1;
+    }
 
     .header {
         padding: 8px;
@@ -950,14 +1053,47 @@ body {
     border-radius: 24px !important;
 }
 
+[data-layout="desktop"] .card.card-no-metrics {
+    display: flex !important;
+    padding: 14px 16px !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+[data-layout="desktop"] .card .card-header-row {
+    margin-bottom: 12px !important;
+}
+
 [data-layout="desktop"] .card h2 {
     font-size: 1.2rem !important;
     margin-bottom: 20px !important;
     display: block !important;
 }
 
+[data-layout="desktop"] .card .card-header-row h2 {
+    margin-bottom: 0 !important;
+}
+
+[data-layout="desktop"] .card.card-no-metrics h2 {
+    margin-bottom: 0 !important;
+    font-size: 1.2rem !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
 [data-layout="desktop"] .card .metrics-compact {
     display: none !important;
+}
+
+[data-layout="desktop"] .card.card-no-metrics .metrics-compact {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
 }
 
 [data-layout="desktop"] .metric {
@@ -1106,6 +1242,12 @@ body {
 
 [data-layout="mobile"] .metrics-compact .compact-metric.battery-low svg {
     fill: #FF5722;
+    opacity: 1;
+}
+
+[data-layout="mobile"] .metrics-compact .compact-metric.status-chip.status-stale svg,
+[data-layout="mobile"] .metrics-compact .compact-metric.status-chip.status-never_seen svg {
+    fill: var(--warning-color);
     opacity: 1;
 }
 

@@ -513,6 +513,18 @@ function createCompactMetrics(data) {
         `);
     }
     
+    // Status indicator (stale/missing) - icon only
+    if (data.status && data.status !== 'active' && !data.isWeatherStation) {
+        const statusLabel = data.status === 'never_seen' ? 'Missing' : 'Stale';
+        metrics.push(`
+            <span class="compact-metric status-chip status-${data.status}" title="${statusLabel}" role="status">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+            </span>
+        `);
+    }
+    
     return `<div class="metrics-compact">${metrics.join('')}</div>`;
 }
 
@@ -530,6 +542,7 @@ async function fetchMetrics() {
         
         const text = await response.text();
         const rooms = {};
+        const statusByDevice = {};
         const deviceGroups = DEVICE_GROUPS;
         const weatherData = {}; // Store OpenMeteo data
 
@@ -551,6 +564,17 @@ async function fetchMetrics() {
                 weatherData[metric] = parseFloat(value);
                 return;
             }
+
+            // Parse device status metrics
+            const statusMatch = line.match(/govee_device_status\{name="([^"]+)",status="([^"]+)"\}\s+([-\d.]+)/);
+            if (statusMatch) {
+                const [, name, status, value] = statusMatch;
+                const numericValue = parseFloat(value);
+                if (numericValue >= 0.5) {
+                    statusByDevice[name] = status;
+                }
+                return;
+            }
             
             // Parse Govee sensor metrics
             const match = line.match(/govee_h5075_(\w+){name="([^"]+)"}\s+([-\d.]+)/);
@@ -564,6 +588,24 @@ async function fetchMetrics() {
                 };
             }
             rooms[name][metric] = parseFloat(value);
+        });
+
+        // Ensure all devices with status are represented in the UI
+        Object.entries(statusByDevice).forEach(([name, status]) => {
+            if (!rooms[name]) {
+                rooms[name] = {
+                    group: deviceGroups[name] || 'Ungrouped',
+                    displayName: getDisplayName(name)
+                };
+            }
+            rooms[name].status = status;
+        });
+
+        // Apply status to devices that already had metrics
+        Object.entries(rooms).forEach(([name, data]) => {
+            if (statusByDevice[name]) {
+                data.status = statusByDevice[name];
+            }
         });
         
         // Add OpenMeteo as a special "device" if data exists
@@ -677,15 +719,25 @@ async function fetchMetrics() {
             const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
             const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
             
+            // Check if any device in group is stale/missing
+            const hasStaleDevice = roomsInGroup.some(({ data }) => {
+                const status = data.status || 'active';
+                return (status === 'stale' || status === 'never_seen') && !data.isWeatherStation;
+            });
+            
             const cardsHTML = roomsInGroup.map(({ name, displayName, data }) => {
                 const prev = previousValues[name] || {};
                 const title = escapeHtml(displayName || name);
                 
                 // Check if this is a weather station
                 const isWeatherStation = data.isWeatherStation || false;
-                const cardClass = isWeatherStation ? 'card weather-station' : 'card';
-                
-                // Create compact metrics for mobile
+                const status = data.status || 'active';
+                const isStale = status === 'stale' || status === 'never_seen';
+                const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
+                const baseClass = isWeatherStation ? 'card weather-station' : 'card';
+                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (!hasMetrics ? ' card-no-metrics' : '');
+
+                // Create compact metrics for mobile (includes status icon if needed)
                 const compactMetrics = createCompactMetrics(data);
                 
                 // Optional weather station footer
@@ -695,13 +747,34 @@ async function fetchMetrics() {
                     </div>
                 ` : '';
                 
-                return `
-                    <div class="${cardClass}" data-room="${escapeHtml(name)}">
-                        <h2>${title}</h2>
-                        ${compactMetrics}
+                const metricsBlock = hasMetrics ? `
                         ${typeof data.temperature !== 'undefined' ? createMetricElement('Temperature', data.temperature.toFixed(1), '°C', 'temperature', prev.temperature) : ''}
                         ${typeof data.humidity !== 'undefined' ? createMetricElement('Humidity', data.humidity.toFixed(1), '%', 'humidity', prev.humidity) : ''}
                         ${typeof data.battery !== 'undefined' ? createMetricElement('Battery', Math.round(data.battery), '%', 'battery', prev.battery) : ''}
+                ` : '';
+
+                // Tooltip for missing/stale devices
+                const statusTooltip = isStale && !isWeatherStation 
+                    ? (status === 'never_seen' ? 'Missing' : 'Stale')
+                    : '';
+
+                // For missing/stale devices without metrics, use simpler structure (no card-header-row)
+                if (!hasMetrics && isStale && !isWeatherStation) {
+                    return `
+                        <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
+                            <h2>${title}</h2>
+                            ${compactMetrics}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
+                        <div class="card-header-row">
+                            <h2>${title}</h2>
+                            ${compactMetrics}
+                        </div>
+                        ${metricsBlock}
                         ${weatherFooter}
                     </div>
                 `;
@@ -724,6 +797,7 @@ async function fetchMetrics() {
                         <div class="group-stats">
                             ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
                             ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}
+                            ${hasStaleDevice ? `<span class="group-stat group-stat-warning" title="Missing or stale devices"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>` : ''}
                         </div>
                     </button>
                     <div class="group-content" style="display: ${isExpanded ? 'grid' : 'none'}">
@@ -767,11 +841,18 @@ async function fetchMetrics() {
                 const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : null;
                 const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : null;
                 
+                // Check if any device in group is stale/missing
+                const hasStaleDevice = roomsInGroup.some(({ data }) => {
+                    const status = data.status || 'active';
+                    return (status === 'stale' || status === 'never_seen') && !data.isWeatherStation;
+                });
+                
                 // Update group stats
                 const statsContainer = groupElement.querySelector('.group-stats');
                 if (statsContainer) {
                     const tempStat = statsContainer.querySelector('.group-stat[title="Average Temperature"]');
                     const humidStat = statsContainer.querySelector('.group-stat[title="Average Humidity"]');
+                    const warningStat = statsContainer.querySelector('.group-stat-warning');
                     
                     if (tempStat && avgTemp !== null) {
                         const tempText = tempStat.childNodes[tempStat.childNodes.length - 1];
@@ -785,6 +866,17 @@ async function fetchMetrics() {
                         if (humidText && humidText.textContent !== `${avgHumid}%`) {
                             humidText.textContent = `${avgHumid}%`;
                         }
+                    }
+                    
+                    // Update warning chip
+                    if (hasStaleDevice && !warningStat) {
+                        const warningChip = document.createElement('span');
+                        warningChip.className = 'group-stat group-stat-warning';
+                        warningChip.title = 'Missing or stale devices';
+                        warningChip.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+                        statsContainer.appendChild(warningChip);
+                    } else if (!hasStaleDevice && warningStat) {
+                        warningStat.remove();
                     }
                 }
                 
@@ -807,10 +899,26 @@ async function fetchMetrics() {
                     // Ensure the card title reflects any display name
                     const titleEl = card.querySelector('h2');
                     const desiredTitle = displayName || name;
+                    const status = data.status || 'active';
+                    const isStale = status === 'stale' || status === 'never_seen';
+                    const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
+                    card.classList.toggle('card-stale', isStale && !(data.isWeatherStation));
+                    card.classList.toggle('card-no-metrics', !hasMetrics);
+
+                    // Update tooltip for missing/stale devices
+                    const statusTooltip = isStale && !(data.isWeatherStation)
+                        ? (status === 'never_seen' ? 'Missing' : 'Stale')
+                        : '';
+                    if (statusTooltip) {
+                        card.setAttribute('title', statusTooltip);
+                    } else {
+                        card.removeAttribute('title');
+                    }
+
                     if (titleEl && titleEl.textContent !== desiredTitle) {
                         titleEl.textContent = desiredTitle;
                     }
-                    
+
                     // Update compact metrics (mobile view)
                     const compactContainer = card.querySelector('.metrics-compact');
                     if (compactContainer) {

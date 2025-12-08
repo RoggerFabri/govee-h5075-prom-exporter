@@ -77,6 +77,7 @@ var (
 	adapter              = bluetooth.DefaultAdapter
 	knownGovees          = make(map[string]KnownGovee)
 	lastUpdateTime       = make(map[string]time.Time)
+	deviceFirstSeen      = make(map[string]time.Time)
 	deviceLastLoggedVals = make(map[string]lastLoggedValues)
 	mutex                = &sync.Mutex{}
 	currentConfig        *Config
@@ -84,6 +85,13 @@ var (
 	openMeteoConfig      *Config
 	openMeteoConfigMu    = &sync.RWMutex{}
 	lastOpenMeteoValues  *lastLoggedValues
+	deviceStatusGauge    = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "govee_device_status",
+			Help: "Status of configured Govee devices (active, stale, never_seen)",
+		},
+		[]string{"name", "status"},
+	)
 )
 
 // Application constants
@@ -92,6 +100,8 @@ const (
 	shutdownTimeout     = 5 * time.Second
 )
 
+var statusLabels = []string{"active", "stale", "never_seen"}
+
 func init() {
 	// Register Prometheus metrics
 	prometheus.MustRegister(temperatureGauge)
@@ -99,6 +109,7 @@ func init() {
 	prometheus.MustRegister(batteryGauge)
 	prometheus.MustRegister(openMeteoTemperatureGauge)
 	prometheus.MustRegister(openMeteoHumidityGauge)
+	prometheus.MustRegister(deviceStatusGauge)
 }
 
 // loadKnownGovees loads device configuration from config into the knownGovees map
@@ -132,6 +143,21 @@ func loadKnownGovees(config *Config) {
 	}
 
 	mutex.Lock()
+	// Clean up state for devices that were removed from config
+	existingNames := make(map[string]struct{})
+	for _, device := range newMap {
+		existingNames[device.Name] = struct{}{}
+	}
+	for name := range lastUpdateTime {
+		if _, ok := existingNames[name]; !ok {
+			delete(lastUpdateTime, name)
+			delete(deviceFirstSeen, name)
+			for _, status := range statusLabels {
+				deviceStatusGauge.DeleteLabelValues(name, status)
+			}
+		}
+	}
+
 	knownGovees = newMap
 	mutex.Unlock()
 
@@ -160,6 +186,9 @@ func loadKnownGovees(config *Config) {
 				device.HumidityOffset)
 		}
 	}
+
+	// Initialize status metrics for configured devices
+	updateAllDeviceStatuses(parseDuration(config.Metrics.StaleThreshold))
 }
 
 func startBLEScanner(ctx context.Context, config *Config) {
@@ -351,7 +380,11 @@ func parseGoveeData(govee KnownGovee, data []byte) {
 
 	// Update last seen time
 	mutex.Lock()
+	if _, exists := deviceFirstSeen[govee.Name]; !exists {
+		deviceFirstSeen[govee.Name] = time.Now()
+	}
 	lastUpdateTime[govee.Name] = time.Now()
+	setDeviceStatusLocked(govee.Name, "active")
 	mutex.Unlock()
 }
 
@@ -382,6 +415,8 @@ func checkForStaleMetrics(config *Config) {
 			}
 		}
 	}
+
+	updateAllDeviceStatusesLocked(staleThreshold, now)
 }
 
 // fetchOpenMeteoData fetches weather data from OpenMeteo API and updates Prometheus metrics
@@ -758,4 +793,43 @@ window.DASHBOARD_CONFIG = {
 	wg.Wait()
 
 	log.Println("Shutdown complete")
+}
+
+// setDeviceStatusLocked sets status metrics for a device, ensuring only one status is 1.
+// Caller must hold mutex.
+func setDeviceStatusLocked(name, status string) {
+	for _, s := range statusLabels {
+		val := 0.0
+		if s == status {
+			val = 1.0
+		}
+		deviceStatusGauge.WithLabelValues(name, s).Set(val)
+	}
+}
+
+// updateAllDeviceStatusesLocked recalculates statuses for all known devices.
+// Caller must hold mutex.
+func updateAllDeviceStatusesLocked(staleThreshold time.Duration, now time.Time) {
+	for _, g := range knownGovees {
+		name := g.Name
+		lastSeen, ok := lastUpdateTime[name]
+		if !ok {
+			setDeviceStatusLocked(name, "never_seen")
+			continue
+		}
+
+		if now.Sub(lastSeen) > staleThreshold {
+			setDeviceStatusLocked(name, "stale")
+		} else {
+			setDeviceStatusLocked(name, "active")
+		}
+	}
+}
+
+// updateAllDeviceStatuses is a thread-safe wrapper for updating all device statuses.
+func updateAllDeviceStatuses(staleThreshold time.Duration) {
+	mutex.Lock()
+	now := time.Now()
+	updateAllDeviceStatusesLocked(staleThreshold, now)
+	mutex.Unlock()
 }
