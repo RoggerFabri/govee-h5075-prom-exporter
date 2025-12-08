@@ -132,7 +132,27 @@ function normalizeTemp(temp) {
     return Math.max(0, Math.min(100, normalizedTemp));
 }
 
-function createMetricElement(label, value, unit, type, previousValue = null) {
+function createMetricElement(label, value, unit, type, previousValue = null, showPlaceholder = false) {
+    if (showPlaceholder) {
+        return `
+        <div class="metric ${type}" data-value="-">
+            <div class="metric-header">
+                <span>${label}</span>
+                <span class="metric-value" aria-label="${label} is unavailable">
+                    -${unit}
+                </span>
+            </div>
+            <div class="progress-bar" 
+                 role="progressbar" 
+                 aria-valuenow="0" 
+                 aria-valuemin="${type === 'temperature' ? MIN_TEMPERATURE : '0'}" 
+                 aria-valuemax="${type === 'temperature' ? MAX_TEMPERATURE : '100'}"
+                 aria-label="${label} level unavailable">
+                <div class="progress" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+    }
     const percentage = type === 'temperature' ? normalizeTemp(value) : Math.max(0, value);
     const showBatteryWarning = type === 'battery' && value <= BATTERY_LOW_THRESHOLD;
     const showFreezingWarning = type === 'temperature' && value < TEMPERATURE_LOW_THRESHOLD;
@@ -730,8 +750,11 @@ async function fetchMetrics() {
                 const status = data.status || 'active';
                 const isStale = status === 'stale' || status === 'never_seen';
                 const hasMetrics = typeof data.temperature !== 'undefined' || typeof data.humidity !== 'undefined' || typeof data.battery !== 'undefined';
+                const isDesktopLayout = document.documentElement.getAttribute('data-layout') === 'desktop';
+                // In desktop, if stale and no metrics, we'll show placeholder metrics, so don't add card-no-metrics class
+                const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktopLayout;
                 const baseClass = isWeatherStation ? 'card weather-station' : 'card';
-                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (!hasMetrics ? ' card-no-metrics' : '');
+                const cardClass = baseClass + (isStale ? ' card-stale' : '') + (!hasMetrics && !shouldShowPlaceholderMetrics ? ' card-no-metrics' : '');
 
                 // Create compact metrics for mobile (includes status icon if needed)
                 const compactMetrics = createCompactMetrics(data);
@@ -754,8 +777,22 @@ async function fetchMetrics() {
                     ? (status === 'never_seen' ? 'Missing' : 'Stale')
                     : '';
 
-                // For missing/stale devices without metrics, use simpler structure (no card-header-row)
-                if (!hasMetrics && isStale && !isWeatherStation) {
+                // Warning chip for desktop layout (top right, aligned with title)
+                // Only show in desktop when we have placeholder metrics or when device has metrics but is stale
+                const statusLabel = isStale && !isWeatherStation 
+                    ? (status === 'never_seen' ? 'Missing' : 'Stale')
+                    : '';
+                const warningChip = statusLabel && isDesktopLayout ? `
+                    <span class="compact-metric status-chip status-${status} card-header-warning-chip" title="${statusLabel}" role="status">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                        </svg>
+                    </span>
+                ` : '';
+
+                // For missing/stale devices without metrics, use simpler structure (no card-header-row) for mobile/auto
+                // In desktop, we'll show placeholder metrics instead, so skip this early return
+                if (!hasMetrics && isStale && !isWeatherStation && !isDesktopLayout) {
                     return `
                         <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
                             <h2>${title}</h2>
@@ -764,13 +801,21 @@ async function fetchMetrics() {
                     `;
                 }
 
+                // For desktop: show all metrics with "-" values for missing/stale devices without metrics
+                const desktopMetricsBlock = shouldShowPlaceholderMetrics ? `
+                        ${createMetricElement('Temperature', 0, '°C', 'temperature', null, true)}
+                        ${createMetricElement('Humidity', 0, '%', 'humidity', null, true)}
+                        ${createMetricElement('Battery', 0, '%', 'battery', null, true)}
+                ` : metricsBlock;
+
                 return `
                     <div class="${cardClass}" data-room="${escapeHtml(name)}"${statusTooltip ? ` title="${statusTooltip}"` : ''}>
                         <div class="card-header-row">
                             <h2>${title}</h2>
+                            ${warningChip}
                             ${compactMetrics}
                         </div>
-                        ${metricsBlock}
+                        ${desktopMetricsBlock}
                         ${weatherFooter}
                     </div>
                 `;
