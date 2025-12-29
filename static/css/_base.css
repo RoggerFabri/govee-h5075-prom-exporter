@@ -21,7 +21,8 @@
         color: var(--text-color);
         transition: background-color 0.3s, color 0.3s;
         padding: var(--spacing-body-desktop);
-        padding-top: var(--spacing-body-top-desktop);
+        padding-top: max(var(--spacing-body-top-desktop), env(safe-area-inset-top));
+        padding-bottom: max(var(--spacing-body-bottom-desktop), env(safe-area-inset-bottom));
         max-width: 100vw;
         box-sizing: border-box;
         line-height: 1.5;
