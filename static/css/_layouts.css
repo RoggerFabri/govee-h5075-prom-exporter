@@ -9,8 +9,8 @@
         max-width: 1400px;
         margin: 0 auto;
         box-sizing: border-box;
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
         min-height: 100px;
         position: relative;
         /* Enable container queries */

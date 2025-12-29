@@ -217,8 +217,8 @@
     @media (max-width: 600px) {
         [data-layout="auto"] body {
             padding: var(--spacing-body-mobile);
-            padding-bottom: var(--spacing-body-bottom-mobile);
-            padding-top: var(--spacing-body-top-mobile);
+            padding-bottom: max(var(--spacing-body-bottom-mobile), env(safe-area-inset-bottom));
+            padding-top: max(var(--spacing-body-top-mobile), env(safe-area-inset-top));
         }
 
         [data-layout="auto"] .container {
