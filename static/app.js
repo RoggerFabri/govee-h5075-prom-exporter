@@ -444,20 +444,33 @@ class CardRenderer {
                           typeof deviceData.battery !== 'undefined';
         const isWeatherStation = deviceData.isWeatherStation || false;
         
+        // Check for low battery (only if not stale/missing - those take priority)
+        const battery = deviceData.battery;
+        const isLowBattery = !isStale && !isWeatherStation && 
+                            typeof battery !== 'undefined' && 
+                            battery <= BATTERY_LOW_THRESHOLD;
+        
         const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktop;
         const shouldAddNoMetricsClass = !hasMetrics && !shouldShowPlaceholderMetrics;
+        
+        // Determine status label: stale/missing takes priority over low battery
+        let statusLabel = '';
+        if (isStale && !isWeatherStation) {
+            statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+        } else if (isLowBattery) {
+            statusLabel = 'Low Battery';
+        }
         
         return {
             isDesktop,
             isStale,
+            isLowBattery,
             hasMetrics,
             isWeatherStation,
             status,
             shouldShowPlaceholderMetrics,
             shouldAddNoMetricsClass,
-            statusLabel: isStale && !isWeatherStation 
-                ? (status === 'never_seen' ? 'Missing' : 'Stale')
-                : ''
+            statusLabel
         };
     }
     
@@ -1286,11 +1299,24 @@ async function fetchMetrics() {
             };
         }
         
-        // Helper function to check if group has stale devices
+        // Helper function to check if group has stale/missing devices
         function hasStaleDevice(roomsInGroup) {
             return roomsInGroup.some(({ data }) => {
                 const status = data.status || 'active';
                 return (status === 'stale' || status === 'never_seen') && !data.isWeatherStation;
+            });
+        }
+        
+        // Helper function to check if group has low battery devices
+        function hasLowBatteryDevice(roomsInGroup) {
+            return roomsInGroup.some(({ data }) => {
+                const status = data.status || 'active';
+                const isStale = status === 'stale' || status === 'never_seen';
+                const battery = data.battery;
+                // Low battery warning only for active devices (not stale/missing)
+                return !isStale && !data.isWeatherStation && 
+                       typeof battery !== 'undefined' && 
+                       battery <= BATTERY_LOW_THRESHOLD;
             });
         }
         
@@ -1303,8 +1329,9 @@ async function fetchMetrics() {
             // Calculate group averages
             const { avgTemp, avgHumid } = calculateGroupAverages(roomsInGroup);
             
-            // Check if any device in group is stale/missing
+            // Check if any device in group is stale/missing or has low battery
             const hasStale = hasStaleDevice(roomsInGroup);
+            const hasLowBattery = hasLowBatteryDevice(roomsInGroup);
             
             const cardsHTML = roomsInGroup.map(({ name, displayName, data }) => {
                 const prev = previousValues[name] || {};
@@ -1329,7 +1356,7 @@ async function fetchMetrics() {
                         <div class="group-stats">
                             ${avgTemp !== null ? `<span class="group-stat" title="Average Temperature"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1v.5c-.31-.18-.65-.3-1-.34V5z"/></svg>${avgTemp}°C</span>` : ''}
                             ${avgHumid !== null ? `<span class="group-stat" title="Average Humidity"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69zM12 4.8L8.05 8.75a6 6 0 1 0 7.9 0L12 4.8z"/></svg>${avgHumid}%</span>` : ''}
-                            ${hasStale ? `<span class="group-stat group-stat-warning" title="Missing or stale devices"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>` : ''}
+                            ${(hasStale || hasLowBattery) ? `<span class="group-stat group-stat-warning" title="Missing, stale or low battery devices"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>` : ''}
                         </div>
                     </button>
                     <div class="group-content" style="display: ${isExpanded ? 'grid' : 'none'}">
@@ -1358,8 +1385,9 @@ async function fetchMetrics() {
                 // Calculate group averages
                 const { avgTemp, avgHumid } = calculateGroupAverages(roomsInGroup);
                 
-                // Check if any device in group is stale/missing
+                // Check if any device in group is stale/missing or has low battery
                 const hasStale = hasStaleDevice(roomsInGroup);
+                const hasLowBattery = hasLowBatteryDevice(roomsInGroup);
                 
                 // Update group stats
                 const statsContainer = groupElement.querySelector('.group-stats');
@@ -1383,13 +1411,13 @@ async function fetchMetrics() {
                     }
                     
                     // Update warning chip
-                    if (hasStale && !warningStat) {
+                    if ((hasStale || hasLowBattery) && !warningStat) {
                         const warningChip = document.createElement('span');
                         warningChip.className = 'group-stat group-stat-warning';
-                        warningChip.title = 'Missing or stale devices';
+                        warningChip.title = 'Missing, stale or low battery devices';
                         warningChip.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
                         statsContainer.appendChild(warningChip);
-                    } else if (!hasStale && warningStat) {
+                    } else if (!(hasStale || hasLowBattery) && warningStat) {
                         warningStat.remove();
                     }
                 }
