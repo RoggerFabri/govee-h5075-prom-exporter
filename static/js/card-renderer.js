@@ -219,20 +219,33 @@ class CardRenderer {
                           typeof deviceData.battery !== 'undefined';
         const isWeatherStation = deviceData.isWeatherStation || false;
         
+        // Check for low battery (only if not stale/missing - those take priority)
+        const battery = deviceData.battery;
+        const isLowBattery = !isStale && !isWeatherStation && 
+                            typeof battery !== 'undefined' && 
+                            battery <= BATTERY_LOW_THRESHOLD;
+        
         const shouldShowPlaceholderMetrics = isStale && !isWeatherStation && !hasMetrics && isDesktop;
         const shouldAddNoMetricsClass = !hasMetrics && !shouldShowPlaceholderMetrics;
+        
+        // Determine status label: stale/missing takes priority over low battery
+        let statusLabel = '';
+        if (isStale && !isWeatherStation) {
+            statusLabel = status === 'never_seen' ? 'Missing' : 'Stale';
+        } else if (isLowBattery) {
+            statusLabel = 'Low Battery';
+        }
         
         return {
             isDesktop,
             isStale,
+            isLowBattery,
             hasMetrics,
             isWeatherStation,
             status,
             shouldShowPlaceholderMetrics,
             shouldAddNoMetricsClass,
-            statusLabel: isStale && !isWeatherStation 
-                ? (status === 'never_seen' ? 'Missing' : 'Stale')
-                : ''
+            statusLabel
         };
     }
     

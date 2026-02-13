@@ -33,7 +33,12 @@ devices = {
     "Server Room": {"temperature": 24.0, "humidity": 15.0, "battery": 60, "group": "Basement"},  # Low humidity
     "Outdoor Shed": {"temperature": -5.0, "humidity": 40.0, "battery": 3, "group": "Outdoor"},  # Multiple warnings (freezing + low battery)
     "Wine Cellar": {"temperature": 0.0, "humidity": 65.0, "battery": 55, "group": "Basement"},  # Boundary: exactly 0°C
-    "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5, "group": "Outdoor"}  # Boundary: exactly 5% battery
+    "Storage Unit": {"temperature": 18.0, "humidity": 50.0, "battery": 5, "group": "Outdoor"},  # Boundary: exactly 5% battery
+    # Workshop group: 3 normal devices + 1 low battery
+    "Workbench": {"temperature": 21.0, "humidity": 40.0, "battery": 80, "group": "Workshop"},
+    "Tool Storage": {"temperature": 19.0, "humidity": 45.0, "battery": 72, "group": "Workshop"},
+    "Paint Room": {"temperature": 20.0, "humidity": 50.0, "battery": 88, "group": "Workshop"},
+    "Old Sensor": {"temperature": 18.5, "humidity": 48.0, "battery": 3, "group": "Workshop"},  # Low battery (3%)
 }
 
 # Device status samples for UI testing
