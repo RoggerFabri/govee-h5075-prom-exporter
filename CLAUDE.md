@@ -48,7 +48,7 @@ This is a single-binary Go application (all files in `package main`) that:
 ### Key Files
 
 | File | Purpose |
-|------|---------|
+| --- | --- |
 | `main.go` | BLE scanning, Prometheus metrics registration, HTTP server, goroutine orchestration |
 | `config.go` | Configuration loading (Viper), hot-reload watcher, `Config` struct |
 | `openmeteo.go` | HTTP client for the Open-Meteo weather API |
