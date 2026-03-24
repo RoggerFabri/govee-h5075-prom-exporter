@@ -1,4 +1,6 @@
 name: govee-h5075-prom-exporter-amd64
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
@@ -11,7 +13,7 @@ on:
       - 'LICENSE.md'
       - '.gitignore'
       - '.github/workflows/*'
-      - 'docker-compose.yml'
+      - 'docker-compose.yaml'
       - 'mock_server.py'
   push:
     branches:
@@ -22,7 +24,7 @@ on:
       - 'LICENSE.md'
       - '.gitignore'
       - '.github/workflows/*'
-      - 'docker-compose.yml'
+      - 'docker-compose.yaml'
       - 'mock_server.py'
 
 jobs:
@@ -32,7 +34,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.25.4'
+          go-version: '1.26'
           cache: true
       - name: Run tests
         run: go test -v ./...
@@ -48,13 +50,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25.4'
+          go-version: '1.26'
           cache: true
       
       - name: Build AMD64 binary with native Go cross-compilation
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-          go build -v -trimpath -p 16 -ldflags="-w -s" -o govee_exporter .
+          go build -trimpath -ldflags="-w -s" -o govee_exporter .
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
