@@ -32,9 +32,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Extract Go version from Dockerfile
+        id: go-version
+        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' Dockerfile | head -1)" >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: true
       - name: Run tests
         run: go test -v ./...
@@ -46,11 +49,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-      
+
+      - name: Extract Go version from Dockerfile
+        id: go-version
+        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' Dockerfile | head -1)" >> $GITHUB_OUTPUT
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: ${{ steps.go-version.outputs.version }}
           cache: true
       
       - name: Build ARM64 binary with native Go cross-compilation
