@@ -1,0 +1,24 @@
+# Exclude development and CI files not needed for source build
+.git
+.gitignore
+.github
+
+# Exclude documentation
+*.md
+
+# Exclude other Dockerfiles
+Dockerfile
+Dockerfile.prebuilt
+Dockerfile.README.md
+
+# Exclude build artifacts and local binary
+*.exe
+govee_exporter
+
+# Exclude test and development files
+mock_server.py
+docker-compose.yaml
+Makefile
+config.yaml
+
+# Keep: *.go, go.mod, go.sum, static/, build-css.js, build-js.js, package*.json

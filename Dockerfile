@@ -1,15 +1,8 @@
 # Stage 1: Build the Go application
-FROM golang:1.26 AS builder
+FROM golang:1.26.1 AS builder
 
 # Set environment variables for cross-compilation
 ENV CGO_ENABLED=0
-
-# Install Node.js for CSS build
-RUN apt-get update && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    node --version && \
-    npm --version
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -18,10 +11,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-# Pre-compile standard library dependencies
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    go install std
+# Install Node.js for frontend asset builds (after Go deps to avoid busting that cache layer)
+RUN apt-get update && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
 
 # Copy the application source code and static files
 COPY . .
@@ -30,10 +23,9 @@ COPY . .
 RUN node build-css.js && node build-js.js
 
 # Build the Go application with additional security flags
-# Using verbose output to see what's being rebuilt
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    GOMAXPROCS=4 go build -v -trimpath -p 16 -ldflags="-w -s" -o govee_exporter .
+    GOMAXPROCS=4 go build -trimpath -ldflags="-w -s" -o govee_exporter .
 
 # Stage 2: Create a minimal runtime container
 FROM alpine:3.23
@@ -57,9 +49,8 @@ RUN apk update && \
 WORKDIR /app
 
 # Copy the built application and static files from the builder stage
-COPY --from=builder /app/govee_exporter .
-COPY --from=builder /app/static/. ./static/
-RUN chown -R appuser:appgroup /app
+COPY --chown=appuser:appgroup --from=builder /app/govee_exporter .
+COPY --chown=appuser:appgroup --from=builder /app/static/. ./static/
 
 # Switch to non-root user
 USER appuser
