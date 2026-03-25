@@ -34,17 +34,6 @@ Between locks, a concurrent hot-reload can modify `knownGovees`, making the log 
 
 ---
 
-## Test: `TestConfigInitialization` is sensitive to `config.yaml` content
-
-**File:** `config_test.go` — `TestConfigInitialization()`
-
-The first sub-test asserts that `initConfig()` returns default values. However, `config.yaml` exists in the repo and Viper loads it automatically, overriding defaults. The test passes currently only because the repo's `config.yaml` happens to match the expected default values. Any change to `config.yaml` (e.g., tuning scan intervals) will silently cause the "default values" assertions to test config-file values instead of actual defaults.
-
-**Fix:** The test should either temporarily rename/remove `config.yaml`, point Viper at a temp directory with no config file, or use a separate `initConfigFromFile(path)` function that can be given an empty path for testing.
-
-
----
-
 ## Design Gap: Bluetooth timing and stale-metrics config not hot-reloaded
 
 **File:** `main.go` — BLE scanner goroutine and stale metrics checker goroutine
