@@ -2,83 +2,71 @@ package main
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 func TestConfigInitialization(t *testing.T) {
-	// Test case 1: Default values
-	config, _, err := initConfig()
-	if err != nil {
-		t.Fatalf("Failed to initialize config: %v", err)
-	}
+	t.Run("defaults", func(t *testing.T) {
+		// Run from an empty temp dir so no config.yaml is found
+		t.Chdir(t.TempDir())
+		viper.Reset()
 
-	// Check expected default values
-	expectedPort := defaultPort
-	expectedRefresh := defaultRefreshInterval
-	expectedStale := defaultStaleThreshold
-	expectedScan := defaultScanInterval
-	expectedDuration := defaultScanDuration
+		config, _, err := initConfig()
+		if err != nil {
+			t.Fatalf("Failed to initialize config: %v", err)
+		}
 
-	// Verify default values
-	if config.Server.Port != expectedPort {
-		t.Errorf("Server.Port = %v, want %v", config.Server.Port, expectedPort)
-	}
-	if config.Metrics.RefreshInterval != expectedRefresh {
-		t.Errorf("Metrics.RefreshInterval = %v, want %v", config.Metrics.RefreshInterval, expectedRefresh)
-	}
-	if config.Metrics.StaleThreshold != expectedStale {
-		t.Errorf("Metrics.StaleThreshold = %v, want %v", config.Metrics.StaleThreshold, expectedStale)
-	}
-	if config.Bluetooth.ScanInterval != expectedScan {
-		t.Errorf("Bluetooth.ScanInterval = %v, want %v", config.Bluetooth.ScanInterval, expectedScan)
-	}
-	if config.Bluetooth.ScanDuration != expectedDuration {
-		t.Errorf("Bluetooth.ScanDuration = %v, want %v", config.Bluetooth.ScanDuration, expectedDuration)
-	}
+		if config.Server.Port != defaultPort {
+			t.Errorf("Server.Port = %v, want %v", config.Server.Port, defaultPort)
+		}
+		if config.Metrics.RefreshInterval != defaultRefreshInterval {
+			t.Errorf("Metrics.RefreshInterval = %v, want %v", config.Metrics.RefreshInterval, defaultRefreshInterval)
+		}
+		if config.Metrics.StaleThreshold != defaultStaleThreshold {
+			t.Errorf("Metrics.StaleThreshold = %v, want %v", config.Metrics.StaleThreshold, defaultStaleThreshold)
+		}
+		if config.Bluetooth.ScanInterval != defaultScanInterval {
+			t.Errorf("Bluetooth.ScanInterval = %v, want %v", config.Bluetooth.ScanInterval, defaultScanInterval)
+		}
+		if config.Bluetooth.ScanDuration != defaultScanDuration {
+			t.Errorf("Bluetooth.ScanDuration = %v, want %v", config.Bluetooth.ScanDuration, defaultScanDuration)
+		}
+	})
 
-	// Test case 2: Environment variables
-	os.Setenv("PORT", "9090")
-	os.Setenv("REFRESH_INTERVAL", "1m")
-	os.Setenv("STALE_THRESHOLD", "10m")
-	os.Setenv("SCAN_INTERVAL", "30s")
-	os.Setenv("SCAN_DURATION", "1m")
-	defer func() {
-		os.Unsetenv("PORT")
-		os.Unsetenv("REFRESH_INTERVAL")
-		os.Unsetenv("STALE_THRESHOLD")
-		os.Unsetenv("SCAN_INTERVAL")
-		os.Unsetenv("SCAN_DURATION")
-	}()
+	t.Run("env vars", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+		viper.Reset()
 
-	config, _, err = initConfig()
-	if err != nil {
-		t.Fatalf("Failed to initialize config with env vars: %v", err)
-	}
+		t.Setenv("PORT", "9090")
+		t.Setenv("REFRESH_INTERVAL", "1m")
+		t.Setenv("STALE_THRESHOLD", "10m")
+		t.Setenv("SCAN_INTERVAL", "30s")
+		t.Setenv("SCAN_DURATION", "1m")
 
-	// Expected values from environment variables
-	expectedRefresh = "1m"
-	expectedStale = "10m"
-	expectedScan = "30s"
-	expectedDuration = "1m"
+		config, _, err := initConfig()
+		if err != nil {
+			t.Fatalf("Failed to initialize config with env vars: %v", err)
+		}
 
-	// Verify environment variable values
-	if config.Server.Port != "9090" {
-		t.Errorf("Server.Port = %v, want 9090", config.Server.Port)
-	}
-	if config.Metrics.RefreshInterval != expectedRefresh {
-		t.Errorf("Metrics.RefreshInterval = %v, want %v", config.Metrics.RefreshInterval, expectedRefresh)
-	}
-	if config.Metrics.StaleThreshold != expectedStale {
-		t.Errorf("Metrics.StaleThreshold = %v, want %v", config.Metrics.StaleThreshold, expectedStale)
-	}
-	if config.Bluetooth.ScanInterval != expectedScan {
-		t.Errorf("Bluetooth.ScanInterval = %v, want %v", config.Bluetooth.ScanInterval, expectedScan)
-	}
-	if config.Bluetooth.ScanDuration != expectedDuration {
-		t.Errorf("Bluetooth.ScanDuration = %v, want %v", config.Bluetooth.ScanDuration, expectedDuration)
-	}
+		if config.Server.Port != "9090" {
+			t.Errorf("Server.Port = %v, want 9090", config.Server.Port)
+		}
+		if config.Metrics.RefreshInterval != "1m" {
+			t.Errorf("Metrics.RefreshInterval = %v, want 1m", config.Metrics.RefreshInterval)
+		}
+		if config.Metrics.StaleThreshold != "10m" {
+			t.Errorf("Metrics.StaleThreshold = %v, want 10m", config.Metrics.StaleThreshold)
+		}
+		if config.Bluetooth.ScanInterval != "30s" {
+			t.Errorf("Bluetooth.ScanInterval = %v, want 30s", config.Bluetooth.ScanInterval)
+		}
+		if config.Bluetooth.ScanDuration != "1m" {
+			t.Errorf("Bluetooth.ScanDuration = %v, want 1m", config.Bluetooth.ScanDuration)
+		}
+	})
 }
 
 func TestParseDuration(t *testing.T) {
