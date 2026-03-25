@@ -85,6 +85,7 @@ var (
 	openMeteoConfig      *Config
 	openMeteoConfigMu    = &sync.RWMutex{}
 	lastOpenMeteoValues  *lastLoggedValues
+	scanTriggerCh        = make(chan struct{}, 1)
 	deviceStatusGauge    = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "govee_device_status",
@@ -240,11 +241,13 @@ func startBLEScanner(ctx context.Context, config *Config) {
 			scanInterval := parseDuration(config.Bluetooth.ScanInterval)
 			log.Printf("Scan completed. Sleeping for %v until next scan...", scanInterval)
 
-			// Rest period between scans
+			// Rest period between scans (interruptible by manual trigger)
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(scanInterval):
+			case <-scanTriggerCh:
+				log.Println("Manual scan triggered, skipping sleep interval")
 			}
 		}
 	}
@@ -668,6 +671,19 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	mux.HandleFunc("/scan", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		select {
+		case scanTriggerCh <- struct{}{}:
+			log.Println("Manual scan triggered via API")
+		default:
+			// Trigger already pending, no-op
+		}
+		w.WriteHeader(http.StatusAccepted)
+	})
 
 	// Serve threshold configuration as JavaScript
 	mux.HandleFunc("/config.js", func(w http.ResponseWriter, r *http.Request) {
@@ -713,6 +729,7 @@ window.DASHBOARD_CONFIG = {
     HUMIDITY_LOW_THRESHOLD: %v,
     HUMIDITY_HIGH_THRESHOLD: %v,
     BATTERY_LOW_THRESHOLD: %v,
+    SCAN_DURATION_MS: %v,
     DEVICE_GROUPS: %s,
     DEVICE_DISPLAY_NAMES: %s
 };`,
@@ -723,6 +740,7 @@ window.DASHBOARD_CONFIG = {
 			cfg.Thresholds.Humidity.Low,
 			cfg.Thresholds.Humidity.High,
 			cfg.Thresholds.Battery.Low,
+			parseDuration(cfg.Bluetooth.ScanDuration).Milliseconds(),
 			string(deviceGroupsJSON),
 			string(deviceDisplayNamesJSON),
 		)

@@ -378,11 +378,21 @@ async function manualRefresh() {
     if (refreshButton) {
         refreshButton.classList.add('spinning');
     }
+
+    try {
+        await fetch('/scan', { method: 'POST' });
+        // Wait for the BLE scan to complete before fetching updated metrics
+        const scanDurationMs = window.DASHBOARD_CONFIG?.SCAN_DURATION_MS ?? 15000;
+        await new Promise(resolve => setTimeout(resolve, scanDurationMs));
+    } catch (_) {
+        // /scan not available (e.g. mock server) — fall through to fetchMetrics
+    }
+
     await fetchMetrics();
     if (refreshButton) {
         refreshButton.classList.remove('spinning');
     }
-    
+
     // Reset the interval timer so next auto-refresh is in full 30 seconds
     resetRefreshInterval();
 }
