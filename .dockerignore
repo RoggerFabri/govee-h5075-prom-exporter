@@ -6,10 +6,8 @@
 *.md
 LICENSE.md
 
-# Exclude other Dockerfiles (only need Dockerfile.prebuilt)
-Dockerfile
-Dockerfile.builder
-Dockerfile.README.md
+# Exclude docker folder (Dockerfiles and compose file not needed in build context)
+docker/
 
 # Exclude documentation files
 *.md
@@ -19,7 +17,6 @@ Dockerfile.README.md
 
 # Exclude test and development files
 mock_server.py
-docker-compose.yaml
 Makefile
 config.yaml
 

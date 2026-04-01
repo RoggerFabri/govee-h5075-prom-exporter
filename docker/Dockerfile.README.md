@@ -16,7 +16,7 @@ This project contains multiple Dockerfiles optimized for different build scenari
 **Build command**:
 
 ```bash
-docker build -t govee-exporter:latest .
+docker build -f docker/Dockerfile -t govee-exporter:latest .
 ```
 
 ## Dockerfile.prebuilt (Optimized for CI/CD)
@@ -34,10 +34,10 @@ docker build -t govee-exporter:latest .
 
 ```bash
 # First compile the binary
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-w -s" -o govee_exporter .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-w -s" -o govee_exporter ./src
 
 # Then build Docker image
-docker build -f Dockerfile.prebuilt -t govee-exporter:latest .
+docker build -f docker/Dockerfile.prebuilt -t govee-exporter:latest .
 ```
 
 ## Dockerfile.builder (Backup/Reference)

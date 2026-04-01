@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Extract Go version from Dockerfile
         id: go-version
-        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' Dockerfile | head -1)" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' docker/Dockerfile | head -1)" >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ steps.go-version.outputs.version }}
@@ -52,7 +52,7 @@ jobs:
 
       - name: Extract Go version from Dockerfile
         id: go-version
-        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' Dockerfile | head -1)" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep -oP '(?<=FROM golang:)\d+\.\d+(\.\d+)?' docker/Dockerfile | head -1)" >> $GITHUB_OUTPUT
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -87,7 +87,7 @@ jobs:
         with:
           push: true
           context: .
-          file: ./Dockerfile.prebuilt
+          file: ./docker/Dockerfile.prebuilt
           platforms: linux/amd64
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64

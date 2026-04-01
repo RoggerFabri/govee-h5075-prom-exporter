@@ -1,6 +1,8 @@
 services:
   govee-h5075-prom-exporter:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: govee-h5075-prom-exporter
     network_mode: "host"  # Required for Bluetooth access
     cap_add:
@@ -25,5 +27,5 @@ services:
       - BATTERY_LOW_THRESHOLD=5
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket # Mount DBus socket
-      - ./config.yaml:/app/config.yaml:ro # Mount config.yaml with device configuration
+      - ../config.yaml:/app/config.yaml:ro # Mount config.yaml with device configuration
     restart: unless-stopped

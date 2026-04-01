@@ -67,7 +67,7 @@ test: ## Run all Go tests
 docker-build: ## Build the Docker image
 	@echo Building Docker image...
 	@echo Image will be tagged as govee-h5075-prom-exporter:latest
-	docker build -t govee-h5075-prom-exporter:latest .
+	docker build -f docker/Dockerfile -t govee-h5075-prom-exporter:latest .
 
 docker-run: ## Run Docker container
 	@echo Running Docker container...
@@ -80,16 +80,16 @@ docker-up: ## Start with Docker Compose (localhost:8080)
 	@echo Starting with Docker Compose...
 	@echo UI: http://localhost:8080
 	@echo Metrics: http://localhost:8080/metrics
-	docker-compose up --build -d
+	docker-compose -f docker/docker-compose.yaml up --build -d
 
 docker-down: ## Stop the Docker containers
 	@echo Stopping Docker containers...
-	docker-compose down
+	docker-compose -f docker/docker-compose.yaml down
 
 # Utility Commands
 clean: ## Clean up build artifacts and stop all containers
 	@echo Cleaning up...
-	-docker-compose down 2>nul
+	-docker-compose -f docker/docker-compose.yaml down 2>nul
 	-del govee-exporter 2>nul
 	-del govee-exporter.exe 2>nul
 	@echo Cleanup complete
