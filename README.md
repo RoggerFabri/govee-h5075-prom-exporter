@@ -29,7 +29,7 @@ cd govee-h5075-prom-exporter
 ### **2️⃣ Build & Run Using Docker**
 
 ```sh
-docker-compose up --build -d
+docker-compose -f docker/docker-compose.yaml up --build -d
 ```
 
 ### **3️⃣ Access Prometheus Metrics**
@@ -165,7 +165,7 @@ export TEMPERATURE_HIGH_THRESHOLD=35
 export HUMIDITY_LOW_THRESHOLD=30
 export HUMIDITY_HIGH_THRESHOLD=70
 export BATTERY_LOW_THRESHOLD=5
-docker-compose up -d
+docker-compose -f docker/docker-compose.yaml up -d
 ```
 
 ---
@@ -218,12 +218,14 @@ devices:
 
 ## 🏗️ Running with Docker Compose
 
-### **📜 `docker-compose.yaml`**
+### **📜 `docker/docker-compose.yaml`**
 
 ```yaml
 services:
   govee-h5075-prom-exporter:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: govee-h5075-prom-exporter
     network_mode: "host"  # Required for BLE access
     cap_add:
@@ -253,7 +255,7 @@ services:
       - BATTERY_LOW_THRESHOLD=5
     volumes:
       - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
-      - ./config.yaml:/app/config.yaml:ro  # Mount config file with device list
+      - ../config.yaml:/app/config.yaml:ro  # Mount config file with device list
     restart: unless-stopped
 ```
 
@@ -294,7 +296,7 @@ This helps you understand which configuration source is being used for each sett
 ### **Start the Container**
 
 ```sh
-docker-compose up --build -d
+docker-compose -f docker/docker-compose.yaml up --build -d
 ```
 
 ### **View Logs**
@@ -460,7 +462,7 @@ The dashboard automatically remembers your theme preference (dark/light) between
 - Restart the service:
 
   ```sh
-  docker-compose down && docker-compose up -d
+  docker-compose -f docker/docker-compose.yaml down && docker-compose -f docker/docker-compose.yaml up -d
   ```
 
 - Check logs:
@@ -504,7 +506,7 @@ The dashboard automatically remembers your theme preference (dark/light) between
 - If hot-reload is disabled, restart the container:
 
   ```sh
-  docker-compose restart
+  docker-compose -f docker/docker-compose.yaml restart
   ```
 
 ---
@@ -565,7 +567,7 @@ The mock server will start at:
 If you don't want to use Docker:
 
 ```sh
-go build -o govee-exporter main.go
+go build -o govee-exporter ./src
 ./govee-exporter
 ```
 
@@ -574,7 +576,7 @@ Pull the latest updates:
 
 ```sh
 git pull origin main
-docker-compose up --build -d
+docker-compose -f docker/docker-compose.yaml up --build -d
 ```
 
 ---
