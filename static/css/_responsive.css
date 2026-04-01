@@ -552,6 +552,8 @@
     /* Forced Mobile Layout Mode */
     [data-layout="mobile"] .container {
         gap: var(--spacing-container-gap-mobile) !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
     [data-layout="mobile"] .group-content {
@@ -632,6 +634,9 @@
         flex-wrap: wrap !important;
         border-radius: var(--card-border-radius-mobile) !important;
         width: var(--card-width-mobile) !important;
+    }
+
+    [data-layout="mobile"] .card.card-no-metrics {
         margin-left: 10px !important;
         margin-right: 10px !important;
     }
