@@ -46,7 +46,7 @@ run: build-css build-js build ## Run the Go application (builds first, then runs
 
 build: build-css build-js ## Build the Go binary
 	@echo Building Go binary...
-	go build -o govee-exporter.exe .
+	go build -o govee-exporter.exe ./src
 	@echo Binary created: govee-exporter.exe
 mock-server: build-css build-js ## Start the mock server for development (localhost:5000)
 	@echo Starting mock server...

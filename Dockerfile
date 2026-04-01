@@ -25,7 +25,7 @@ RUN node build-css.js && node build-js.js
 # Build the Go application with additional security flags
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    GOMAXPROCS=4 go build -trimpath -ldflags="-w -s" -o govee_exporter .
+    GOMAXPROCS=4 go build -trimpath -ldflags="-w -s" -o govee_exporter ./src
 
 # Stage 2: Create a minimal runtime container
 FROM alpine:3.23

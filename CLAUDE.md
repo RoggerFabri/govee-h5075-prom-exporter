@@ -31,7 +31,7 @@ make docker-down
 
 ## Architecture
 
-This is a single-binary Go application (all files in `package main`) that:
+This is a single-binary Go application (all Go source in `src/`, `package main`) that:
 
 1. **Scans for Govee H5075 BLE sensors** via `tinygo.org/x/bluetooth`, parsing manufacturer data (company ID `0xEC88`) to extract temperature, humidity, and battery from raw 3-byte payloads.
 
@@ -49,9 +49,9 @@ This is a single-binary Go application (all files in `package main`) that:
 
 | File | Purpose |
 | --- | --- |
-| `main.go` | BLE scanning, Prometheus metrics registration, HTTP server, goroutine orchestration |
-| `config.go` | Configuration loading (Viper), hot-reload watcher, `Config` struct |
-| `openmeteo.go` | HTTP client for the Open-Meteo weather API |
+| `src/main.go` | BLE scanning, Prometheus metrics registration, HTTP server, goroutine orchestration |
+| `src/config.go` | Configuration loading (Viper), hot-reload watcher, `Config` struct |
+| `src/openmeteo.go` | HTTP client for the Open-Meteo weather API |
 | `static/js/` | Frontend JS modules (bundled to `static/app.js` by `build-js.js`) |
 | `static/css/` | CSS partials prefixed with `_` (bundled to `static/styles.css` by `build-css.js`) |
 | `mock_server.py` | Python/Flask dev server simulating 5 devices — use when BLE hardware isn't available |
@@ -66,7 +66,7 @@ Configuration uses [Viper](https://github.com/spf13/viper) with three-tier prece
 
 ### BLE Data Parsing
 
-The `parseGoveeData()` function in `main.go` decodes the 3-byte manufacturer payload: bytes 1-3 encode a combined integer where `raw / 1000` gives temperature (tenths of degrees) and `raw % 1000` gives humidity (tenths of percent). The high bit of byte 1 signals negative temperature. Calibration offsets are applied after parsing.
+The `parseGoveeData()` function in `src/main.go` decodes the 3-byte manufacturer payload: bytes 1-3 encode a combined integer where `raw / 1000` gives temperature (tenths of degrees) and `raw % 1000` gives humidity (tenths of percent). The high bit of byte 1 signals negative temperature. Calibration offsets are applied after parsing.
 
 ### Frontend Build
 

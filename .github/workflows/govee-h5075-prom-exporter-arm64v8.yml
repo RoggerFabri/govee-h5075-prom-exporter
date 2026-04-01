@@ -63,7 +63,7 @@ jobs:
       - name: Build ARM64 binary with native Go cross-compilation
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-          go build -trimpath -ldflags="-w -s" -o govee_exporter .
+          go build -trimpath -ldflags="-w -s" -o govee_exporter ./src
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
