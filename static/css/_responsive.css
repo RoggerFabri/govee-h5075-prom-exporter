@@ -550,6 +550,12 @@
     }
 
     /* Forced Mobile Layout Mode */
+    [data-layout="mobile"] body {
+        padding: var(--spacing-body-mobile) !important;
+        padding-bottom: max(var(--spacing-body-bottom-mobile), env(safe-area-inset-bottom)) !important;
+        padding-top: max(var(--spacing-body-top-mobile), env(safe-area-inset-top)) !important;
+    }
+
     [data-layout="mobile"] .container {
         gap: var(--spacing-container-gap-mobile) !important;
         padding-left: 0 !important;

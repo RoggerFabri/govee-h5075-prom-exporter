@@ -45,6 +45,8 @@ run: build-css build-js build ## Run the Go application (builds first, then runs
 	.\govee-exporter.exe
 
 build: build-css build-js ## Build the Go binary
+	@echo Updating service worker cache version...
+	@node build-sw.js
 	@echo Building Go binary...
 	go build -o govee-exporter.exe ./src
 	@echo Binary created: govee-exporter.exe

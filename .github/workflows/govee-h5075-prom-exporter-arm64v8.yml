@@ -71,7 +71,7 @@ jobs:
           node-version: '20'
 
       - name: Build frontend assets
-        run: node build-css.js && node build-js.js
+        run: node build-css.js && node build-js.js && node build-sw.js
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4

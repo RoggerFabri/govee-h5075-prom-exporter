@@ -71,7 +71,7 @@ jobs:
           node-version: '20'
 
       - name: Build frontend assets
-        run: node build-css.js && node build-js.js
+        run: node build-css.js && node build-js.js && node build-sw.js
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
