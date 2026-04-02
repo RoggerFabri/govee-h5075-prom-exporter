@@ -1,4 +1,4 @@
-const CACHE_NAME = 'govee-sensors-197162f1';
+const CACHE_NAME = 'govee-sensors-5f77b503';
 const urlsToCache = [
   '/',
   '/static/styles.css',

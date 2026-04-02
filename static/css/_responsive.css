@@ -549,6 +549,47 @@
         display: block !important;
     }
 
+    /* Forced Desktop Layout - Small Screen Graceful Degradation */
+    @media (max-width: 600px) {
+        [data-layout="desktop"] .group-content {
+            grid-template-columns: 1fr !important;
+        }
+
+        [data-layout="desktop"] .group-header {
+            flex-wrap: wrap !important;
+            padding: var(--spacing-group-header-padding-mobile) !important;
+            gap: var(--group-header-gap-mobile) !important;
+            row-gap: 4px !important;
+        }
+
+        [data-layout="desktop"] .group-name {
+            font-size: var(--font-size-group-name-mobile) !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-word !important;
+        }
+
+        [data-layout="desktop"] .group-stats {
+            flex: 0 0 auto !important;
+            margin-left: auto !important;
+            margin-right: 0 !important;
+        }
+
+        [data-layout="desktop"] .group-stat {
+            font-size: var(--font-size-group-stat-mobile) !important;
+            padding: var(--group-stat-padding-mobile) !important;
+            gap: var(--group-stat-gap-mobile) !important;
+        }
+
+        [data-layout="desktop"] .card {
+            width: 100% !important;
+            margin: 0 !important;
+        }
+    }
+
     /* Forced Mobile Layout Mode */
     [data-layout="mobile"] body {
         padding: var(--spacing-body-mobile) !important;
