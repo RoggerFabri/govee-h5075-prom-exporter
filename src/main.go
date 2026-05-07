@@ -215,24 +215,28 @@ func startBLEScanner(ctx context.Context, config *Config) {
 			adapter.StopScan()
 			return
 		default:
-			// Create a context with timeout for scan duration
 			scanCtx, cancel := context.WithTimeout(ctx, parseDuration(config.Bluetooth.ScanDuration))
 
-			// Start scanning with context
+			// Stop the scan when duration expires even if no BLE packets arrive.
+			// adapter.Scan() blocks on a channel loop; without this goroutine it
+			// can hang forever if StartDiscovery stalls (the library calls it async
+			// precisely because it can block when the adapter was recently stopped).
+			go func() {
+				<-scanCtx.Done()
+				adapter.StopScan()
+			}()
+
 			err := adapter.Scan(func(_ *bluetooth.Adapter, device bluetooth.ScanResult) {
-				select {
-				case <-scanCtx.Done():
-					adapter.StopScan()
-					return
-				default:
-					scanCallback(device)
-				}
+				scanCallback(device)
 			})
 
 			cancel()
 
 			if err != nil {
 				log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+				if enableErr := adapter.Enable(); enableErr != nil {
+					log.Printf("Failed to re-enable Bluetooth adapter: %v", enableErr)
+				}
 				time.Sleep(5 * time.Second)
 				continue
 			}
