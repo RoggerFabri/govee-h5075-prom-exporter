@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/godbus/dbus/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"tinygo.org/x/bluetooth"
@@ -98,7 +99,7 @@ var (
 // Application constants
 const (
 	goveeManufacturerID = uint16(0xEC88)
-	shutdownTimeout     = 5 * time.Second
+	shutdownTimeout     = 8 * time.Second
 )
 
 var statusLabels = []string{"active", "stale", "never_seen"}
@@ -192,6 +193,28 @@ func loadKnownGovees(config *Config) {
 	updateAllDeviceStatuses(parseDuration(config.Metrics.StaleThreshold))
 }
 
+// stopStaleBlueZDiscovery calls StopDiscovery directly on BlueZ to clear any
+// discovery session left behind by a previous run that crashed mid-scan. Without
+// this, the next StartDiscovery call returns "Operation already in progress" forever.
+// A 5 s timeout prevents this from blocking shutdown or startup if the HCI adapter is stuck.
+func stopStaleBlueZDiscovery() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	bus, err := dbus.SystemBus()
+	if err != nil {
+		log.Printf("BLE recovery: D-Bus connect failed: %v", err)
+		return
+	}
+	defer bus.Close()
+	obj := bus.Object("org.bluez", dbus.ObjectPath("/org/bluez/hci0"))
+	if call := obj.CallWithContext(ctx, "org.bluez.Adapter1.StopDiscovery", 0); call.Err != nil {
+		log.Printf("BLE recovery: StopDiscovery: %v", call.Err)
+	} else {
+		log.Printf("BLE recovery: cleared stale BlueZ discovery session")
+	}
+}
+
 func startBLEScanner(ctx context.Context, config *Config) {
 	// Add retry logic for enabling the adapter
 	maxRetries := 3
@@ -206,6 +229,9 @@ func startBLEScanner(ctx context.Context, config *Config) {
 		}
 		break
 	}
+
+	// Clear any stale BlueZ discovery session from a previous run before starting.
+	stopStaleBlueZDiscovery()
 
 	log.Println("Scanning for Govee H5075 devices...")
 
@@ -234,6 +260,7 @@ func startBLEScanner(ctx context.Context, config *Config) {
 
 			if err != nil {
 				log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+				stopStaleBlueZDiscovery()
 				if enableErr := adapter.Enable(); enableErr != nil {
 					log.Printf("Failed to re-enable Bluetooth adapter: %v", enableErr)
 				}
@@ -811,10 +838,21 @@ window.DASHBOARD_CONFIG = {
 		log.Printf("Error during server shutdown: %v", err)
 	}
 
-	// Wait for all goroutines to finish
-	wg.Wait()
-
-	log.Println("Shutdown complete")
+	// Wait for goroutines, but don't block past the shutdown deadline.
+	// The BLE goroutine can hang in StopDiscovery if the HCI adapter is stuck;
+	// exiting on time lets the D-Bus connection close cleanly so BlueZ can
+	// release the discovery session rather than leaving it stranded.
+	wgDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(wgDone)
+	}()
+	select {
+	case <-wgDone:
+		log.Println("Shutdown complete")
+	case <-shutdownCtx.Done():
+		log.Println("Shutdown timed out waiting for goroutines — forcing exit")
+	}
 }
 
 // setDeviceStatusLocked sets status metrics for a device, ensuring only one status is 1.
