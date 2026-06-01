@@ -193,20 +193,48 @@ func loadKnownGovees(config *Config) {
 	updateAllDeviceStatuses(parseDuration(config.Metrics.StaleThreshold))
 }
 
-// stopStaleBlueZDiscovery calls StopDiscovery directly on BlueZ to clear any
-// discovery session left behind by a previous run that crashed mid-scan. Without
-// this, the next StartDiscovery call returns "Operation already in progress" forever.
+// dbusBus is the subset of *dbus.Conn that BLE recovery needs. It exists as an
+// interface so stopStaleBlueZDiscovery can be unit-tested with a fake bus —
+// asserting in particular that the shared connection is never closed — without a
+// live system bus. Close() is included so a reintroduced bus.Close() call still
+// compiles and is caught by the test rather than slipping through.
+type dbusBus interface {
+	Object(dest string, path dbus.ObjectPath) dbus.BusObject
+	Close() error
+}
+
+// systemBusProvider returns the shared system bus connection. It is a package
+// variable so tests can substitute a fake. In production it returns the godbus
+// process-wide singleton (the same one the tinygo bluetooth library uses).
+var systemBusProvider = func() (dbusBus, error) {
+	bus, err := dbus.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+	return bus, nil
+}
+
+// stopStaleBlueZDiscovery calls StopDiscovery directly on BlueZ to clear a
+// discovery session left dangling by a previous Scan() on this process. Without
+// this, the next StartDiscovery call returns "Operation already in progress".
 // A 5 s timeout prevents this from blocking shutdown or startup if the HCI adapter is stuck.
+//
+// IMPORTANT: dbus.SystemBus() returns a process-wide *shared* singleton connection
+// that the tinygo bluetooth library also uses (adapter_linux.go calls SystemBus()
+// too). We MUST NOT Close() it — doing so tears the connection out from under the
+// BLE library ("dbus: connection closed by user") and bricks scanning. Reusing the
+// same connection is also what makes StopDiscovery effective: BlueZ tracks discovery
+// per D-Bus sender, so the StopDiscovery only clears the library's session when it
+// runs on the library's own connection.
 func stopStaleBlueZDiscovery() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	bus, err := dbus.SystemBus()
+	bus, err := systemBusProvider()
 	if err != nil {
 		log.Printf("BLE recovery: D-Bus connect failed: %v", err)
 		return
 	}
-	defer bus.Close()
 	obj := bus.Object("org.bluez", dbus.ObjectPath("/org/bluez/hci0"))
 	if call := obj.CallWithContext(ctx, "org.bluez.Adapter1.StopDiscovery", 0); call.Err != nil {
 		log.Printf("BLE recovery: StopDiscovery: %v", call.Err)
