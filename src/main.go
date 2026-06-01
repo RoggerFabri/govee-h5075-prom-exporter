@@ -243,6 +243,32 @@ func stopStaleBlueZDiscovery() {
 	}
 }
 
+// ensureAdapterPowered sets org.bluez.Adapter1.Powered = true so the container can
+// recover when the HCI adapter comes back un-powered — e.g. after the host's
+// bluetooth service is restarted, or when BlueZ's [Policy] AutoEnable is off (common
+// on DietPi). tinygo's adapter.Enable() only reads the adapter's address; it never
+// powers the controller on, so without this a powered-off adapter loops forever on
+// "bluetooth: adaptor is not powered". Setting Powered=true is idempotent in BlueZ.
+// Uses the shared system bus (see stopStaleBlueZDiscovery) and never closes it.
+func ensureAdapterPowered() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	bus, err := systemBusProvider()
+	if err != nil {
+		log.Printf("BLE recovery: D-Bus connect failed: %v", err)
+		return
+	}
+	obj := bus.Object("org.bluez", dbus.ObjectPath("/org/bluez/hci0"))
+	call := obj.CallWithContext(ctx, "org.freedesktop.DBus.Properties.Set", 0,
+		"org.bluez.Adapter1", "Powered", dbus.MakeVariant(true))
+	if call.Err != nil {
+		log.Printf("BLE recovery: powering on adapter failed: %v", call.Err)
+	} else {
+		log.Printf("BLE recovery: ensured Bluetooth adapter is powered on")
+	}
+}
+
 func startBLEScanner(ctx context.Context, config *Config) {
 	// Add retry logic for enabling the adapter
 	maxRetries := 3
@@ -258,7 +284,9 @@ func startBLEScanner(ctx context.Context, config *Config) {
 		break
 	}
 
-	// Clear any stale BlueZ discovery session from a previous run before starting.
+	// Power on the adapter (it may be un-powered after a host bluetooth restart) and
+	// clear any stale BlueZ discovery session from a previous run before starting.
+	ensureAdapterPowered()
 	stopStaleBlueZDiscovery()
 
 	log.Println("Scanning for Govee H5075 devices...")
@@ -288,6 +316,7 @@ func startBLEScanner(ctx context.Context, config *Config) {
 
 			if err != nil {
 				log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+				ensureAdapterPowered()
 				stopStaleBlueZDiscovery()
 				if enableErr := adapter.Enable(); enableErr != nil {
 					log.Printf("Failed to re-enable Bluetooth adapter: %v", enableErr)

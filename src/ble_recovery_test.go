@@ -94,3 +94,33 @@ func TestStopStaleBlueZDiscoveryHandlesProviderError(t *testing.T) {
 	// Must not panic when the bus cannot be obtained.
 	stopStaleBlueZDiscovery()
 }
+
+// TestEnsureAdapterPoweredSetsPoweredWithoutClosingBus verifies the power-on
+// recovery sets org.bluez.Adapter1.Powered (so a powered-off adapter self-heals
+// instead of looping on "adaptor is not powered") and, like all recovery code,
+// never closes the shared system bus.
+func TestEnsureAdapterPoweredSetsPoweredWithoutClosingBus(t *testing.T) {
+	bus := &fakeBus{obj: &fakeBusObject{}}
+	defer withFakeBus(t, bus, nil)()
+
+	ensureAdapterPowered()
+
+	if bus.closed {
+		t.Fatal("ensureAdapterPowered() closed the shared system bus; it is shared with " +
+			"the tinygo bluetooth library and closing it breaks BLE scanning")
+	}
+	if bus.obj.callCount != 1 {
+		t.Fatalf("expected exactly one D-Bus call, got %d", bus.obj.callCount)
+	}
+	if want := "org.freedesktop.DBus.Properties.Set"; bus.obj.calledWith != want {
+		t.Fatalf("expected call to %q, got %q", want, bus.obj.calledWith)
+	}
+}
+
+// TestEnsureAdapterPoweredHandlesProviderError ensures a failure to obtain the bus
+// is handled gracefully rather than panicking.
+func TestEnsureAdapterPoweredHandlesProviderError(t *testing.T) {
+	defer withFakeBus(t, nil, errors.New("no system bus"))()
+
+	ensureAdapterPowered()
+}
