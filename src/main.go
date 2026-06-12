@@ -269,6 +269,48 @@ func ensureAdapterPowered() {
 	}
 }
 
+// powerCycleDelay is how long the adapter stays off during a power cycle. A
+// package variable so tests don't have to wait out the real delay.
+var powerCycleDelay = 2 * time.Second
+
+// powerCycleAdapter turns the adapter off and back on (Powered=false, then true).
+// This is the last-resort recovery for a wedged bluetoothd discovery state machine:
+// when the process is killed mid-discovery, BlueZ (observed on 5.66) can be left
+// reporting Discovering=true with no owning client — it then defers every
+// StartDiscovery reply forever and answers StopDiscovery with "No discovery
+// started", so neither stopStaleBlueZDiscovery nor ensureAdapterPowered can help.
+// Powering the adapter off forces bluetoothd to run its discovery cleanup and
+// resync with the controller. Uses the shared system bus and never closes it
+// (see stopStaleBlueZDiscovery).
+func powerCycleAdapter() {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	bus, err := systemBusProvider()
+	if err != nil {
+		log.Printf("BLE recovery: D-Bus connect failed: %v", err)
+		return
+	}
+	obj := bus.Object("org.bluez", dbus.ObjectPath("/org/bluez/hci0"))
+	if call := obj.CallWithContext(ctx, "org.freedesktop.DBus.Properties.Set", 0,
+		"org.bluez.Adapter1", "Powered", dbus.MakeVariant(false)); call.Err != nil {
+		log.Printf("BLE recovery: powering off adapter failed: %v", call.Err)
+		return
+	}
+	time.Sleep(powerCycleDelay)
+	if call := obj.CallWithContext(ctx, "org.freedesktop.DBus.Properties.Set", 0,
+		"org.bluez.Adapter1", "Powered", dbus.MakeVariant(true)); call.Err != nil {
+		log.Printf("BLE recovery: powering adapter back on failed: %v", call.Err)
+		return
+	}
+	log.Printf("BLE recovery: power-cycled the Bluetooth adapter to reset BlueZ discovery state")
+}
+
+// scanFailuresBeforePowerCycle is the number of consecutive Scan() failures after
+// which recovery escalates from StopDiscovery/power-on to a full adapter power
+// cycle (and again every multiple thereafter).
+const scanFailuresBeforePowerCycle = 3
+
 func startBLEScanner(ctx context.Context, config *Config) {
 	// Add retry logic for enabling the adapter
 	maxRetries := 3
@@ -290,6 +332,8 @@ func startBLEScanner(ctx context.Context, config *Config) {
 	stopStaleBlueZDiscovery()
 
 	log.Println("Scanning for Govee H5075 devices...")
+
+	consecutiveFailures := 0
 
 	for {
 		select {
@@ -315,15 +359,21 @@ func startBLEScanner(ctx context.Context, config *Config) {
 			cancel()
 
 			if err != nil {
-				log.Printf("Scanning failed, retrying in 5 seconds: %v", err)
+				consecutiveFailures++
+				log.Printf("Scanning failed (%d consecutive), retrying in 5 seconds: %v", consecutiveFailures, err)
 				ensureAdapterPowered()
 				stopStaleBlueZDiscovery()
+				if consecutiveFailures%scanFailuresBeforePowerCycle == 0 {
+					powerCycleAdapter()
+				}
 				if enableErr := adapter.Enable(); enableErr != nil {
 					log.Printf("Failed to re-enable Bluetooth adapter: %v", enableErr)
 				}
 				time.Sleep(5 * time.Second)
 				continue
 			}
+
+			consecutiveFailures = 0
 
 			// Log completion of scan and upcoming sleep period
 			scanInterval := parseDuration(config.Bluetooth.ScanInterval)

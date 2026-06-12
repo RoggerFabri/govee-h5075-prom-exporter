@@ -16,11 +16,13 @@ type fakeBusObject struct {
 	callErr    error
 	calledWith string
 	callCount  int
+	callArgs   [][]interface{} // args of each call, in order
 }
 
 func (o *fakeBusObject) CallWithContext(ctx context.Context, method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
 	o.callCount++
 	o.calledWith = method
+	o.callArgs = append(o.callArgs, args)
 	return &dbus.Call{Err: o.callErr}
 }
 
@@ -123,4 +125,66 @@ func TestEnsureAdapterPoweredHandlesProviderError(t *testing.T) {
 	defer withFakeBus(t, nil, errors.New("no system bus"))()
 
 	ensureAdapterPowered()
+}
+
+// TestPowerCycleAdapterSetsPoweredFalseThenTrue verifies the escalated recovery
+// for a wedged bluetoothd discovery state machine (Discovering=true with no owning
+// client): the adapter must be powered off and back on, in that order, and the
+// shared system bus must never be closed.
+func TestPowerCycleAdapterSetsPoweredFalseThenTrue(t *testing.T) {
+	origDelay := powerCycleDelay
+	powerCycleDelay = 0
+	defer func() { powerCycleDelay = origDelay }()
+
+	bus := &fakeBus{obj: &fakeBusObject{}}
+	defer withFakeBus(t, bus, nil)()
+
+	powerCycleAdapter()
+
+	if bus.closed {
+		t.Fatal("powerCycleAdapter() closed the shared system bus; it is shared with " +
+			"the tinygo bluetooth library and closing it breaks BLE scanning")
+	}
+	if bus.obj.callCount != 2 {
+		t.Fatalf("expected exactly two D-Bus calls (Powered=false, Powered=true), got %d", bus.obj.callCount)
+	}
+	for i, want := range []bool{false, true} {
+		args := bus.obj.callArgs[i]
+		if len(args) != 3 || args[0] != "org.bluez.Adapter1" || args[1] != "Powered" {
+			t.Fatalf("call %d: expected Properties.Set on org.bluez.Adapter1 Powered, got args %v", i, args)
+		}
+		variant, ok := args[2].(dbus.Variant)
+		if !ok || variant.Value() != want {
+			t.Fatalf("call %d: expected Powered=%v, got %v", i, want, args[2])
+		}
+	}
+}
+
+// TestPowerCycleAdapterStopsAfterPowerOffError ensures that if powering off fails,
+// the adapter is not blindly powered back on (the single Set call is the failed
+// power-off) and the bus stays open.
+func TestPowerCycleAdapterStopsAfterPowerOffError(t *testing.T) {
+	origDelay := powerCycleDelay
+	powerCycleDelay = 0
+	defer func() { powerCycleDelay = origDelay }()
+
+	bus := &fakeBus{obj: &fakeBusObject{callErr: errors.New("adapter is busy")}}
+	defer withFakeBus(t, bus, nil)()
+
+	powerCycleAdapter()
+
+	if bus.closed {
+		t.Fatal("powerCycleAdapter() closed the shared system bus")
+	}
+	if bus.obj.callCount != 1 {
+		t.Fatalf("expected one D-Bus call (failed power-off, no power-on attempt), got %d", bus.obj.callCount)
+	}
+}
+
+// TestPowerCycleAdapterHandlesProviderError ensures a failure to obtain the bus is
+// handled gracefully rather than panicking.
+func TestPowerCycleAdapterHandlesProviderError(t *testing.T) {
+	defer withFakeBus(t, nil, errors.New("no system bus"))()
+
+	powerCycleAdapter()
 }
