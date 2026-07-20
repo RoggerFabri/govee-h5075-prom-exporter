@@ -65,7 +65,7 @@ jobs:
           CGO_ENABLED=0 go build -trimpath -ldflags="-w -s" -o govee_exporter ./src
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
