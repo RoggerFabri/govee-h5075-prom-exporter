@@ -7,7 +7,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.24.1
-	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/client_model v0.6.3
 	github.com/spf13/viper v1.21.0
 	tinygo.org/x/bluetooth v0.16.0
 )
@@ -39,6 +39,6 @@ require (
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	tinygo.org/x/espradio v0.3.0 // indirect
 )
