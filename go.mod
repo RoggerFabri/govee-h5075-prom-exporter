@@ -1,6 +1,6 @@
 module example.com/m/v2
 
-go 1.26.1
+go 1.26.10
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
