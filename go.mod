@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/spf13/viper v1.21.0
-	tinygo.org/x/bluetooth v0.16.0
+	tinygo.org/x/bluetooth v0.17.0
 )
 
 require (
@@ -23,22 +23,22 @@ require (
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/saltosystems/winrt-go v0.0.0-20260317170058-9c2fec580d96 // indirect
+	github.com/saltosystems/winrt-go v0.0.0-20261015065339-8ef619c103a3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
-	github.com/soypat/cyw43439 v0.1.2-0.20260731160358-f2a6af121857 // indirect
-	github.com/soypat/lneto v0.3.2 // indirect
+	github.com/soypat/cyw43439 v0.2.0 // indirect
+	github.com/soypat/lneto v0.4.0 // indirect
 	github.com/soypat/seqs v0.0.0-20260125140838-2c1c6b1bd69e // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/tinygo-org/cbgo v0.0.4 // indirect
+	github.com/tinygo-org/cbgo v0.1.0 // indirect
 	github.com/tinygo-org/pio v0.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	tinygo.org/x/espradio v0.3.0 // indirect
+	tinygo.org/x/espradio v0.5.0 // indirect
 )
